@@ -269,4 +269,4 @@ pxegrub: pxeloader diskless
 # General rule for making a raw binary.
 SUFFIXES = .exec
 .exec:
-	$(OBJCOPY) -O binary $< $@
+	$(OBJCOPY) --only-section=.text -O binary $< $@
