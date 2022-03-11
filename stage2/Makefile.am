@@ -11,7 +11,7 @@ noinst_HEADERS = apic.h defs.h dir.h disk_inode.h disk_inode_ffs.h \
 EXTRA_DIST = setjmp.S apm.S $(noinst_SCRIPTS)
 
 # For <stage1.h>.
-INCLUDES = -I$(top_srcdir)/stage1
+AM_CPPFLAGS = -I$(top_srcdir)/stage1
 
 # The library for /sbin/grub.
 noinst_LIBRARIES = libgrub.a

@@ -1,5 +1,5 @@
 # For <shared.h> and <stage1.h>.
-INCLUDES = -I$(top_srcdir)/stage2 -I$(top_srcdir)/stage1
+AM_CPPFLAGS = -I$(top_srcdir)/stage2 -I$(top_srcdir)/stage1
 
 # Don't build the netboot support by default.
 if NETBOOT_SUPPORT
