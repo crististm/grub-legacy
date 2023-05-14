@@ -1400,14 +1400,15 @@ find_func (char *arg, int flags)
   for (drive = 0x80; drive < 0x88; drive++)
     {
       unsigned long part = 0xFFFFFF;
-      unsigned long start, len, offset, ext_offset;
-      int type, entry;
+      unsigned long start, len, offset, ext_offset, gpt_offset;
+      int type, entry, gpt_count, gpt_size;
       char buf[SECTOR_SIZE];
 
       current_drive = drive;
       while (next_partition (drive, 0xFFFFFF, &part, &type,
 			     &start, &len, &offset, &entry,
-			     &ext_offset, buf))
+                            &ext_offset, &gpt_offset,
+                            &gpt_count, &gpt_size, buf))
 	{
 	  if (type != PC_SLICE_TYPE_NONE
 	      && ! IS_PC_SLICE_TYPE_BSD (type)
@@ -3004,8 +3005,8 @@ parttype_func (char *arg, int flags)
 {
   int new_type;
   unsigned long part = 0xFFFFFF;
-  unsigned long start, len, offset, ext_offset;
-  int entry, type;
+  unsigned long start, len, offset, ext_offset, gpt_offset;
+  int entry, type, gpt_count, gpt_size;
   char mbr[512];
 
   /* Get the drive and the partition.  */
@@ -3042,8 +3043,15 @@ parttype_func (char *arg, int flags)
   /* Look for the partition.  */
   while (next_partition (current_drive, 0xFFFFFF, &part, &type,
 			 &start, &len, &offset, &entry,
-			 &ext_offset, mbr))
+			 &ext_offset, &gpt_offset, &gpt_count, &gpt_size, mbr))
     {
+	  /* The partition may not be a GPT partition.  */
+	  if (gpt_offset != 0)
+	    {
+		errnum = ERR_BAD_ARGUMENT;
+		return 1;
+	    }
+
       if (part == current_partition)
 	{
 	  /* Found.  */
