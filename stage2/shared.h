@@ -161,7 +161,9 @@ extern void *grub_scratch_mem;
 
 #define LINUX_CL_OFFSET			0x9000
 #define LINUX_CL_END_OFFSET		0x90FF
-#define LINUX_SETUP_MOVE_SIZE		0x9100
+#define LINUX_CL_0202_PRM_OFFSET	0x9500
+#define LINUX_CL_0202_PRM_END_OFFSET	0x9FFF
+#define LINUX_SETUP_MOVE_SIZE		0xA000
 #define LINUX_CL_MAGIC			0xA33F
 
 /*

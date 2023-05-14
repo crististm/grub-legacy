@@ -241,7 +241,7 @@ load_image (char *kernel, char *arg, kernel_t suggested_type,
 	    }
 
 	  if (lh->version >= 0x0202)
-	    lh->cmd_line_ptr = linux_data_real_addr + LINUX_CL_OFFSET;
+	    lh->cmd_line_ptr = linux_data_real_addr + LINUX_CL_0202_PRM_OFFSET;
 	  else
 	    {
 	      lh->cl_magic = LINUX_CL_MAGIC;
@@ -407,6 +407,15 @@ load_image (char *kernel, char *arg, kernel_t suggested_type,
 	    while (dest < linux_data_tmp_addr + LINUX_CL_END_OFFSET && *src)
 	      *(dest++) = *(src++);
 	
+	    {
+	    char *src = skip_to (0, arg);
+	    char *dest = linux_data_tmp_addr + LINUX_CL_0202_PRM_OFFSET;
+
+	    while (dest < linux_data_tmp_addr + LINUX_CL_0202_PRM_END_OFFSET && *src)
+	      *(dest++) = *(src++);
+	    *dest = 0;
+	    }
+
 	    /* Old Linux kernels have problems determining the amount of
 	       the available memory.  To work around this problem, we add
 	       the "mem" option to the kernel command line.  This has its
