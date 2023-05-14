@@ -55,11 +55,11 @@ noinst_PROGRAMS = pre_stage2.exec start.exec start_eltorito.exec \
 endif
 MOSTLYCLEANFILES = $(noinst_PROGRAMS)
 
-PRE_STAGE2_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,8200
-START_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,8000
-NBLOADER_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,0
-PXELOADER_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,7C00
-START_ELTORITO_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,7C00
+PRE_STAGE2_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,8200
+START_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,8000
+NBLOADER_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,0
+PXELOADER_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,7C00
+START_ELTORITO_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,7C00
 
 if NETBOOT_SUPPORT
 NETBOOT_FLAGS = -I$(top_srcdir)/netboot -DSUPPORT_NETBOOT=1
@@ -82,7 +82,7 @@ endif
 STAGE2_COMPILE = $(STAGE2_CFLAGS) -fno-builtin -nostdinc \
 	$(NETBOOT_FLAGS) $(SERIAL_FLAGS) $(HERCULES_FLAGS)
 
-STAGE1_5_LINK = -nostdlib -Wl,-N -Wl,-Ttext -Wl,2000
+STAGE1_5_LINK = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,2000
 STAGE1_5_COMPILE = $(STAGE2_COMPILE) -DNO_DECOMPRESSION=1 -DSTAGE1_5=1
 
 # For stage2 target.

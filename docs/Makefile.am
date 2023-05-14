@@ -14,7 +14,7 @@ noinst_PROGRAMS = kernel
 kernel_SOURCES = $(EXAMPLES)
 kernel_CFLAGS = -fno-builtin -nostdinc -O -g -Wall \
 	-imacros $(top_builddir)/config.h
-kernel_LDFLAGS = -nostdlib -Wl,-N -Wl,-Ttext -Wl,100000
+kernel_LDFLAGS = -nostdlib -static -Wl,-N -Wl,-Ttext -Wl,100000
 
 boot.o: multiboot.h
 endif
