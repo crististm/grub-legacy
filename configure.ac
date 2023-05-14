@@ -117,8 +117,8 @@ if test "x$ac_cv_c_compiler_gnu" = xyes; then
 		]])],[grub_cv_cc_fpie=yes],[grub_cv_cc_fpie=no])
     ])
     if test "x$grub_cv_cc_fpie" = xyes; then
-      STAGE1_CFLAGS="$STAGE1_CFLAGS -nopie"
-      STAGE2_CFLAGS="$STAGE2_CFLAGS -nopie"
+      STAGE1_CFLAGS="$STAGE1_CFLAGS -no-pie"
+      STAGE2_CFLAGS="$STAGE2_CFLAGS -no-pie"
     fi
   fi
 fi
