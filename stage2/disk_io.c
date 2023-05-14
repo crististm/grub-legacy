@@ -800,7 +800,12 @@ real_open_partition (int flags)
 
   /* If this is the whole disk, return here.  */
   if (! flags && current_partition == 0xFFFFFF)
-    return 1;
+    {
+#ifndef STAGE1_5
+      cur_part_offset = 0;
+#endif /* ! STAGE1_5 */
+      return 1;
+    }
 
   if (flags)
     dest_partition = 0xFFFFFF;
