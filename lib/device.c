@@ -545,6 +545,18 @@ get_dac960_disk_name (char *name, int controller, int drive)
 }
 
 static void
+get_cciss_disk_name (char *name, int controller, int drive)
+{
+  sprintf (name, "/dev/cciss/c%dd%d", controller, drive);
+}
+
+static void
+get_ida_disk_name (char *name, int controller, int drive)
+{
+  sprintf (name, "/dev/ida/c%dd%d", controller, drive);
+}
+
+static void
 get_ataraid_disk_name (char *name, int unit)
 {
   sprintf (name, "/dev/ataraid/d%c", unit + '0');
@@ -970,6 +982,74 @@ init_device_map (char ***map, const char *map_file, int floppy_disks)
 
 	    num_hd++;
           }
+      }
+  }
+
+  /* This is for CCISS, its like the DAC960  - we have
+     /dev/cciss/<controller>d<logical drive>p<partition> 
+
+     It currently supports up to 3 controllers, 10 logical volumes
+     and 10 partitions
+
+     Code gratuitously copied from DAC960 above.
+     Horms <horms@verge.net.au> 23rd July 2004
+  */
+  {
+    int controller, drive;
+    
+    for (controller = 0; controller < 2; controller++)
+      {
+	for (drive = 0; drive < 9; drive++)
+	  {
+	    char name[24];
+	    
+	    get_cciss_disk_name (name, controller, drive);
+	    if (check_device (name))
+	      {
+		(*map)[num_hd + 0x80] = strdup (name);
+		assert ((*map)[num_hd + 0x80]);
+		
+		/* If the device map file is opened, write the map.  */
+		if (fp)
+		  fprintf (fp, "(hd%d)\t%s\n", num_hd, name);
+		
+		num_hd++;
+	      }
+	  }
+      }
+  }
+
+  /* This is for Compaq Smart Array, its like the DAC960  - we have
+     /dev/ida/<controller>d<logical drive>p<partition> 
+
+     It currently supports up to 3 controllers, 10 logical volumes
+     and 15 partitions
+
+     Code gratuitously copied from DAC960 above.
+     Piotr Roszatycki <dexter@debian.org>
+  */
+  {
+    int controller, drive;
+    
+    for (controller = 0; controller < 2; controller++)
+      {
+	for (drive = 0; drive < 9; drive++)
+	  {
+	    char name[24];
+	    
+	    get_ida_disk_name (name, controller, drive);
+	    if (check_device (name))
+	      {
+		(*map)[num_hd + 0x80] = strdup (name);
+		assert ((*map)[num_hd + 0x80]);
+		
+		/* If the device map file is opened, write the map.  */
+		if (fp)
+		  fprintf (fp, "(hd%d)\t%s\n", num_hd, name);
+		
+		num_hd++;
+	      }
+	  }
       }
   }
 #endif /* __linux__ */
