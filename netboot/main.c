@@ -83,7 +83,9 @@ static const unsigned char dhcpdiscover[] =
   RFC2132_MAX_SIZE,2,	/* request as much as we can */
   ETH_MAX_MTU / 256, ETH_MAX_MTU % 256,
   RFC2132_PARAM_LIST, 4, RFC1533_NETMASK, RFC1533_GATEWAY,
-  RFC1533_HOSTNAME, RFC1533_EXTENSIONPATH
+  RFC1533_HOSTNAME, RFC1533_EXTENSIONPATH,
+  /* Vendor class identifier */
+  RFC2132_VENDOR_CLASS_ID, 10, 'G', 'R', 'U', 'B', 'C', 'l', 'i', 'e', 'n', 't',
 };
 
 static const unsigned char dhcprequest[] =
@@ -103,6 +105,8 @@ static const unsigned char dhcprequest[] =
   /* Etherboot vendortags */
   RFC1533_VENDOR_MAGIC,
   RFC1533_VENDOR_CONFIGFILE,
+  /* Vendor class identifier */
+  RFC2132_VENDOR_CLASS_ID, 10, 'G', 'R', 'U', 'B', 'C', 'l', 'i', 'e', 'n', 't',
 };
 
 #endif /* ! NO_DHCP_SUPPORT */
