@@ -36,6 +36,9 @@ void graphics_set_palette(int idx, int red, int green, int blue);
 void set_int1c_handler();
 void unset_int1c_handler();
 
+/* Only to check for safe opening before we start */
+int grub_file_exists(char *s);
+
 extern short cursorX, cursorY;
 extern char cursorBuf[16];
 

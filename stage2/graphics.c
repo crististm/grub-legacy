@@ -108,6 +108,10 @@ char *graphics_get_splash(void) {
  * mode.  */
 int graphics_init()
 {
+    if(!grub_file_exists(splashimage)) {
+        return 0;
+    }
+
     if (!graphics_inited) {
         saved_videomode = set_videomode(0x12);
     }
@@ -547,6 +551,13 @@ void graphics_cursor(int set) {
     }
 
     MapMask(15);
+}
+
+int grub_file_exists(char *s) {
+    if (!grub_open(s))
+        return 0;
+    grub_close();
+    return 1;
 }
 
 #endif /* SUPPORT_GRAPHICS */
