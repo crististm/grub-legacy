@@ -455,7 +455,9 @@ unless ($opt_no_info)
     $include{$sect} .= <<EOT;
 The full documentation for
 .B $program
-is maintained as a Texinfo manual.  If the
+is maintained as a Texinfo manual in the
+.B grub-doc
+package.  If the
 .B info
 and
 .B $program

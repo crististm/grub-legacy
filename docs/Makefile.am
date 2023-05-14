@@ -37,14 +37,14 @@ CLEANFILES = $(noinst_PROGRAMS)
 	$(SHELL) $(srcdir)/$(SRC2TEXI) $(srcdir) $< $@
 
 if MAINTAINER_MODE
-$(srcdir)/grub.8: ../grub/grub $(srcdir)/$(HELP2MAN)
+$(srcdir)/grub.8: ../grub/grub $(srcdir)/$(HELP2MAN) $(srcdir)/grub.8.additions
 	$(PERL) $(srcdir)/$(HELP2MAN) --name="the grub shell" \
-		--section=8 --output=$@ $<
+		--section=8 --include=$@.additions --output=$@ $<
 
-$(srcdir)/grub-install.8: ../util/grub-install $(srcdir)/$(HELP2MAN)
+$(srcdir)/grub-install.8: ../util/grub-install $(srcdir)/$(HELP2MAN)  $(srcdir)/grub-install.8.additions
 	chmod 755 $<
 	$(PERL) $(srcdir)/$(HELP2MAN) --name="install GRUB on your drive" \
-		--section=8 --output=$@ $<
+		--section=8 --include=$@.additions --output=$@ $<
 
 $(srcdir)/mbchk.1: ../util/mbchk $(srcdir)/$(HELP2MAN)
 	$(PERL) $(srcdir)/$(HELP2MAN) \
