@@ -852,6 +852,138 @@ static struct builtin builtin_dhcp =
 };
 #endif /* SUPPORT_NETBOOT */
 
+static int terminal_func (char *arg, int flags);
+
+#ifdef SUPPORT_GRAPHICS
+
+static int splashimage_func(char *arg, int flags) {
+    char splashimage[64];
+    int i;
+    
+    /* filename can only be 64 characters due to our buffer size */
+    if (strlen(arg) > 63)
+	return 1;
+    if (flags == BUILTIN_CMDLINE) {
+	if (!grub_open(arg))
+	    return 1;
+	grub_close();
+    }
+
+    strcpy(splashimage, arg);
+
+    /* get rid of TERM_NEED_INIT from the graphics terminal. */
+    for (i = 0; term_table[i].name; i++) {
+	if (grub_strcmp (term_table[i].name, "graphics") == 0) {
+	    term_table[i].flags &= ~TERM_NEED_INIT;
+	    break;
+	}
+    }
+    
+    graphics_set_splash(splashimage);
+
+    if (flags == BUILTIN_CMDLINE && graphics_inited) {
+	graphics_end();
+	graphics_init();
+	graphics_cls();
+    }
+
+    /* FIXME: should we be explicitly switching the terminal as a 
+     * side effect here? */
+    terminal_func("graphics", flags);
+
+    return 0;
+}
+
+static struct builtin builtin_splashimage =
+{
+  "splashimage",
+  splashimage_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "splashimage FILE",
+  "Load FILE as the background image when in graphics mode."
+};
+
+
+/* foreground */
+static int
+foreground_func(char *arg, int flags)
+{
+    if (grub_strlen(arg) == 6) {
+	int r = ((hex(arg[0]) << 4) | hex(arg[1])) >> 2;
+	int g = ((hex(arg[2]) << 4) | hex(arg[3])) >> 2;
+	int b = ((hex(arg[4]) << 4) | hex(arg[5])) >> 2;
+
+	foreground = (r << 16) | (g << 8) | b;
+	if (graphics_inited)
+	    graphics_set_palette(15, r, g, b);
+
+	return (0);
+    }
+
+    return (1);
+}
+
+static struct builtin builtin_foreground =
+{
+  "foreground",
+  foreground_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "foreground RRGGBB",
+  "Sets the foreground color when in graphics mode."
+  "RR is red, GG is green, and BB blue. Numbers must be in hexadecimal."
+};
+
+
+/* background */
+static int
+background_func(char *arg, int flags)
+{
+    if (grub_strlen(arg) == 6) {
+	int r = ((hex(arg[0]) << 4) | hex(arg[1])) >> 2;
+	int g = ((hex(arg[2]) << 4) | hex(arg[3])) >> 2;
+	int b = ((hex(arg[4]) << 4) | hex(arg[5])) >> 2;
+
+	background = (r << 16) | (g << 8) | b;
+	if (graphics_inited)
+	    graphics_set_palette(0, r, g, b);
+	return (0);
+    }
+
+    return (1);
+}
+
+static struct builtin builtin_background =
+{
+  "background",
+  background_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "background RRGGBB",
+  "Sets the background color when in graphics mode."
+  "RR is red, GG is green, and BB blue. Numbers must be in hexadecimal."
+};
+
+#endif /* SUPPORT_GRAPHICS */
+
+
+/* clear */
+static int 
+clear_func() 
+{
+  if (current_term->cls)
+    current_term->cls();
+
+  return 0;
+}
+
+static struct builtin builtin_clear =
+{
+  "clear",
+  clear_func,
+  BUILTIN_CMDLINE | BUILTIN_HELP_LIST,
+  "clear",
+  "Clear the screen"
+};
+
 
 /* displayapm */
 static int
@@ -4085,7 +4217,7 @@ static struct builtin builtin_setup =
 };
 
 
-#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES)
+#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES) || defined(SUPPORT_GRAPHICS)
 /* terminal */
 static int
 terminal_func (char *arg, int flags)
@@ -4244,17 +4376,21 @@ terminal_func (char *arg, int flags)
  end:
   current_term = term_table + default_term;
   current_term->flags = term_flags;
-  
+
   if (lines)
     max_lines = lines;
   else
-    /* 24 would be a good default value.  */
-    max_lines = 24;
-  
+    max_lines = current_term->max_lines;
+
   /* If the interface is currently the command-line,
      restart it to repaint the screen.  */
-  if (current_term != prev_term && (flags & BUILTIN_CMDLINE))
+  if ((current_term != prev_term) && (flags & BUILTIN_CMDLINE)){
+    if (prev_term->shutdown)
+      prev_term->shutdown();
+    if (current_term->startup)
+      current_term->startup();
     grub_longjmp (restart_cmdline_env, 0);
+  }
   
   return 0;
 }
@@ -4264,7 +4400,7 @@ static struct builtin builtin_terminal =
   "terminal",
   terminal_func,
   BUILTIN_MENU | BUILTIN_CMDLINE | BUILTIN_HELP_LIST,
-  "terminal [--dumb] [--no-echo] [--no-edit] [--timeout=SECS] [--lines=LINES] [--silent] [console] [serial] [hercules]",
+  "terminal [--dumb] [--no-echo] [--no-edit] [--timeout=SECS] [--lines=LINES] [--silent] [console] [serial] [hercules] [graphics]",
   "Select a terminal. When multiple terminals are specified, wait until"
   " you push any key to continue. If both console and serial are specified,"
   " the terminal to which you input a key first will be selected. If no"
@@ -4276,7 +4412,7 @@ static struct builtin builtin_terminal =
   " seconds. The option --lines specifies the maximum number of lines."
   " The option --silent is used to suppress messages."
 };
-#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES */
+#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES || SUPPORT_GRAPHICS */
 
 
 #ifdef SUPPORT_SERIAL
@@ -4795,6 +4931,9 @@ static struct builtin builtin_vbeprobe =
 /* The table of builtin commands. Sorted in dictionary order.  */
 struct builtin *builtin_table[] =
 {
+#ifdef SUPPORT_GRAPHICS
+  &builtin_background,
+#endif
   &builtin_blocklist,
   &builtin_boot,
 #ifdef SUPPORT_NETBOOT
@@ -4802,6 +4941,7 @@ struct builtin *builtin_table[] =
 #endif /* SUPPORT_NETBOOT */
   &builtin_cat,
   &builtin_chainloader,
+  &builtin_clear,
   &builtin_cmp,
   &builtin_color,
   &builtin_configfile,
@@ -4821,6 +4961,9 @@ struct builtin *builtin_table[] =
   &builtin_embed,
   &builtin_fallback,
   &builtin_find,
+#ifdef SUPPORT_GRAPHICS
+  &builtin_foreground,
+#endif
   &builtin_fstest,
   &builtin_geometry,
   &builtin_halt,
@@ -4864,9 +5007,12 @@ struct builtin *builtin_table[] =
 #endif /* SUPPORT_SERIAL */
   &builtin_setkey,
   &builtin_setup,
-#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES)
+#ifdef SUPPORT_GRAPHICS
+  &builtin_splashimage,
+#endif /* SUPPORT_GRAPHICS */
+#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES) || defined(SUPPORT_GRAPHICS)
   &builtin_terminal,
-#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES */
+#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES || SUPPORT_GRAPHICS */
 #ifdef SUPPORT_SERIAL
   &builtin_terminfo,
 #endif /* SUPPORT_SERIAL */

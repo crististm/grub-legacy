@@ -35,6 +35,7 @@ struct term_entry term_table[] =
     {
       "console",
       0,
+      24,
       console_putchar,
       console_checkkey,
       console_getkey,
@@ -43,13 +44,16 @@ struct term_entry term_table[] =
       console_cls,
       console_setcolorstate,
       console_setcolor,
-      console_setcursor
+      console_setcursor,
+      0, 
+      0
     },
 #ifdef SUPPORT_SERIAL
     {
       "serial",
       /* A serial device must be initialized.  */
       TERM_NEED_INIT,
+      24,
       serial_putchar,
       serial_checkkey,
       serial_getkey,
@@ -58,6 +62,8 @@ struct term_entry term_table[] =
       serial_cls,
       serial_setcolorstate,
       0,
+      0,
+      0, 
       0
     },
 #endif /* SUPPORT_SERIAL */
@@ -65,6 +71,7 @@ struct term_entry term_table[] =
     {
       "hercules",
       0,
+      24,
       hercules_putchar,
       console_checkkey,
       console_getkey,
@@ -73,9 +80,28 @@ struct term_entry term_table[] =
       hercules_cls,
       hercules_setcolorstate,
       hercules_setcolor,
-      hercules_setcursor
+      hercules_setcursor,
+      0,
+      0
     },      
 #endif /* SUPPORT_HERCULES */
+#ifdef SUPPORT_GRAPHICS
+    { "graphics",
+      TERM_NEED_INIT, /* flags */
+      30, /* number of lines */
+      graphics_putchar, /* putchar */
+      console_checkkey, /* checkkey */
+      console_getkey, /* getkey */
+      graphics_getxy, /* getxy */
+      graphics_gotoxy, /* gotoxy */
+      graphics_cls, /* cls */
+      graphics_setcolorstate, /* setcolorstate */
+      graphics_setcolor, /* setcolor */
+      graphics_setcursor, /* nocursor */
+      graphics_init, /* initialize */
+      graphics_end /* shutdown */
+    },
+#endif /* SUPPORT_GRAPHICS */
     /* This must be the last entry.  */
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   };
@@ -1046,13 +1072,15 @@ grub_putchar (int c)
 		 the following grub_printf call will print newlines.  */
 	      count_lines = -1;
 
+	      grub_printf("\n");
 	      if (current_term->setcolorstate)
 		current_term->setcolorstate (COLOR_STATE_HIGHLIGHT);
 	      
-	      grub_printf ("\n[Hit return to continue]");
+	      grub_printf ("[Hit return to continue]");
 
 	      if (current_term->setcolorstate)
 		current_term->setcolorstate (COLOR_STATE_NORMAL);
+	        
 	      
 	      do
 		{
@@ -1090,7 +1118,7 @@ void
 cls (void)
 {
   /* If the terminal is dumb, there is no way to clean the terminal.  */
-  if (current_term->flags & TERM_DUMB)
+  if (current_term->flags & TERM_DUMB) 
     grub_putchar ('\n');
   else
     current_term->cls ();
@@ -1215,6 +1243,16 @@ memcheck (int addr, int len)
     errnum = ERR_WONT_FIT;
 
   return ! errnum;
+}
+
+void
+grub_memcpy(void *dest, const void *src, int len)
+{
+  int i;
+  register char *d = (char*)dest, *s = (char*)src;
+
+  for (i = 0; i < len; i++)
+    d[i] = s[i];
 }
 
 void *

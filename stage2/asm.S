@@ -2216,6 +2216,156 @@ ENTRY(console_setcursor)
 	pop	%ebx
 	pop	%ebp
 	ret
+
+/* graphics mode functions */
+#ifdef SUPPORT_GRAPHICS
+VARIABLE(cursorX)
+.word	0
+VARIABLE(cursorY)
+.word	0
+VARIABLE(cursorCount)
+.word 0
+VARIABLE(cursorBuf)
+.byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+	
+/*
+ * int set_videomode(mode)
+ * BIOS call "INT 10H Function 0h" to set video mode
+ *	Call with	%ah = 0x0
+ *			%al = video mode
+ *      Returns old videomode.
+ */
+ENTRY(set_videomode)
+	push	%ebp
+	push	%ebx
+	push	%ecx
+
+	movb	0x10(%esp), %cl
+
+	call	EXT_C(prot_to_real)
+	.code16
+
+	xorw	%bx, %bx
+	movb	$0xf, %ah
+	int	$0x10			/* Get Current Video mode */
+	movb	%al, %ch
+	xorb	%ah, %ah
+	movb	%cl, %al
+        int	$0x10			/* Set Video mode */
+
+	DATA32	call	EXT_C(real_to_prot)
+	.code32
+
+	xorb	%ah, %ah
+	movb	%ch, %al
+
+	pop	%ecx
+	pop	%ebx
+	pop	%ebp
+	ret
+
+
+/*
+ * unsigned char * graphics_get_font()
+ * BIOS call "INT 10H Function 11h" to set font
+ *      Call with       %ah = 0x11
+ */
+ENTRY(graphics_get_font)
+	push	%ebp
+	push	%ebx
+	push	%ecx
+	push	%edx
+
+	call	EXT_C(prot_to_real)
+	.code16
+
+	movw	$0x1130, %ax
+	movb	$6, %bh		/* font 8x16 */
+	int	$0x10
+	movw	%bp, %dx
+	movw	%es, %cx
+
+	DATA32	call	EXT_C(real_to_prot)
+	.code32
+
+	xorl	%eax, %eax
+	movw	%cx, %ax
+	shll	$4, %eax
+	movw	%dx, %ax
+
+	pop	%edx
+	pop	%ecx
+	pop	%ebx
+	pop	%ebp
+	ret
+	
+
+	
+/*
+ * graphics_set_palette(index, red, green, blue)
+ * BIOS call "INT 10H Function 10h" to set individual dac register
+ *	Call with	%ah = 0x10
+ *			%bx = register number
+ *			%ch = new value for green (0-63)
+ *			%cl = new value for blue (0-63)
+ *			%dh = new value for red (0-63)
+ */
+
+ENTRY(graphics_set_palette)
+	push	%ebp
+	push	%eax
+	push	%ebx
+	push	%ecx
+	push	%edx
+
+	movw	$0x3c8, %bx		/* address write mode register */
+
+	/* wait vertical retrace */
+
+	movw	$0x3da, %dx
+l1b:	inb	%dx, %al	/* wait vertical active display */
+	test	$8, %al
+	jnz	l1b
+
+l2b:	inb	%dx, %al	/* wait vertical retrace */
+	test	$8, %al
+	jnz	l2b
+
+	mov	%bx, %dx
+	movb	0x18(%esp), %al		/* index */
+	outb	%al, %dx
+	inc	%dx
+
+	movb	0x1c(%esp), %al		/* red */
+	outb	%al, %dx
+
+	movb	0x20(%esp), %al		/* green */
+	outb	%al, %dx
+
+	movb	0x24(%esp), %al		/* blue */
+	outb	%al, %dx
+
+	movw	0x18(%esp), %bx
+
+	call	EXT_C(prot_to_real)
+	.code16
+
+	movb	%bl, %bh
+	movw	$0x1000, %ax
+	int	$0x10
+
+	DATA32	call	EXT_C(real_to_prot)
+	.code32	
+
+	pop	%edx
+	pop	%ecx
+	pop	%ebx
+	pop	%eax
+	pop	%ebp
+	ret
+
+#endif /* SUPPORT_GRAPHICS */
 		
 /*
  * getrtsecs()
