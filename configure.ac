@@ -205,7 +205,7 @@ AC_CHECK_LIB(util, opendisk, [GRUB_LIBS="$GRUB_LIBS -lutil"
 
 # Unless the user specify --without-curses, check for curses.
 if test "x$with_curses" != "xno"; then
-  AC_CHECK_LIB(ncurses, wgetch, [GRUB_LIBS="$GRUB_LIBS -lncurses"
+  AC_CHECK_LIB(ncurses, wgetch, [GRUB_LIBS="$GRUB_LIBS -lncurses -ltinfo"
   AC_DEFINE(HAVE_LIBCURSES, 1, [Define if you have a curses library])],
     [AC_CHECK_LIB(curses, wgetch, [GRUB_LIBS="$GRUB_LIBS -lcurses"
        AC_DEFINE(HAVE_LIBCURSES, 1, [Define if you have a curses library])])])
