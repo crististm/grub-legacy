@@ -701,7 +701,7 @@ dosum (unsigned short *start, unsigned int len, unsigned short *sum)
      "adcw %%ax,%0\n\t"		/* add carry of previous iteration */
      "loop 1b\n\t"
      "adcw $0,%0"		/* add carry of last iteration */
-     : "=b" (*sum), "=S"(start), "=c"(len)
+     : "=r" (*sum), "=S"(start), "=c"(len)
      : "0"(*sum), "1"(start), "2"(len)
      : "ax", "cc"
      );
