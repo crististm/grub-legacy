@@ -49,7 +49,7 @@
 /*
   29 May 2001  mdc     1.0
      Initial Release.  Tested with Netgear FA311 and FA312 boards
-*/
+*/
 /* Includes */
 
 #include "etherboot.h"

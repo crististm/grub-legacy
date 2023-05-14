@@ -33,7 +33,7 @@ typedef struct terminfo
 }
 terminfo;
 
-
+
 /* Function prototypes.  */
 char *ti_escape_memory (const char *in, const char *end);
 char *ti_escape_string (const char *in);

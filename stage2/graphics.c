@@ -127,7 +127,7 @@ int graphics_init()
     graphics_inited = 1;
 
     /* make sure that the highlight color is set correctly */
-    graphics_highlight_color = ((graphics_normal_color >> 4) | 
+    graphics_highlight_color = ((graphics_normal_color >> 4) |
 				((graphics_normal_color & 0xf) << 4));
 
     return 1;
@@ -232,7 +232,7 @@ void graphics_cls(void) {
     grub_memcpy(mem, s8, 38400);
 
     MapMask(15);
- 
+
 }
 
 void graphics_setcolorstate (color_state state) {
@@ -283,7 +283,7 @@ int read_image(char *s)
         grub_close();
         return 0;
     }
-    
+
     /* parse info */
     while (grub_read(&c, 1)) {
         if (c == '"')
@@ -402,11 +402,11 @@ int read_image(char *s)
 
     grub_close();
 
-    graphics_set_palette(0, (background >> 16), (background >> 8) & 63, 
+    graphics_set_palette(0, (background >> 16), (background >> 8) & 63,
                 background & 63);
-    graphics_set_palette(15, (foreground >> 16), (foreground >> 8) & 63, 
+    graphics_set_palette(15, (foreground >> 16), (foreground >> 8) & 63,
                 foreground & 63);
-    graphics_set_palette(0x11, (border >> 16), (border >> 8) & 63, 
+    graphics_set_palette(0x11, (border >> 16), (border >> 8) & 63,
                          border & 63);
 
     return 1;

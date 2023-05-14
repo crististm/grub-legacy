@@ -20,7 +20,7 @@
 
 #include "shared.h"
 
-
+
 /* These are defined in asm.S, and never be used elsewhere, so declare the
    prototypes here.  */
 extern int biosdisk_int13_extensions (int ax, int drive, void *dap);
@@ -39,7 +39,7 @@ extern int get_diskinfo_floppy (int drive,
 				unsigned long *sectors);
 #endif
 
-
+
 /* Read/write NSEC sectors starting from SECTOR in DRIVE disk with GEOMETRY
    from/into SEGMENT segment. If READ is BIOSDISK_READ, then read it,
    else if READ is BIOSDISK_WRITE, then write it. If an geometry error

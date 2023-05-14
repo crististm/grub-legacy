@@ -45,7 +45,7 @@ struct term_entry term_table[] =
       console_setcolorstate,
       console_setcolor,
       console_setcursor,
-      0, 
+      0,
       0
     },
 #ifdef SUPPORT_SERIAL
@@ -63,7 +63,7 @@ struct term_entry term_table[] =
       serial_setcolorstate,
       0,
       0,
-      0, 
+      0,
       0
     },
 #endif /* SUPPORT_SERIAL */
@@ -1080,7 +1080,7 @@ grub_putchar (int c)
 
 	      if (current_term->setcolorstate)
 		current_term->setcolorstate (COLOR_STATE_NORMAL);
-	        
+
 	      
 	      do
 		{

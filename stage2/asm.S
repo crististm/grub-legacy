@@ -2260,7 +2260,7 @@ VARIABLE(cursorCount)
 VARIABLE(cursorBuf)
 .byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-	
+
 /*
  * int set_videomode(mode)
  * BIOS call "INT 10H Function 0h" to set video mode
@@ -2331,9 +2331,9 @@ ENTRY(graphics_get_font)
 	pop	%ebx
 	pop	%ebp
 	ret
-	
 
-	
+
+
 /*
  * graphics_set_palette(index, red, green, blue)
  * BIOS call "INT 10H Function 10h" to set individual dac register
@@ -2388,7 +2388,7 @@ l2b:	inb	%dx, %al	/* wait vertical retrace */
 	int	$0x10
 
 	DATA32	call	EXT_C(real_to_prot)
-	.code32	
+	.code32
 
 	pop	%edx
 	pop	%ecx

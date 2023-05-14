@@ -722,7 +722,7 @@ restart:
    * before booting the kernel, but we want to save what it was so
    * we can come back if needed */
   prev_term = current_term;
-  if (current_term->shutdown) 
+  if (current_term->shutdown)
     {
       (*current_term->shutdown)();
       current_term = term_table; /* assumption: console is first */
