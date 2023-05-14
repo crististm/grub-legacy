@@ -12,10 +12,10 @@ dnl "AS IS" CONDITION.  THE FREE SOFTWARE FOUNDATION DISCLAIMS ANY
 dnl LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 dnl USE OF THIS SOFTWARE.
 
-AC_PREREQ(2.57)
-AC_INIT([GRUB], [0.97], [bug-grub@gnu.org])
+AC_PREREQ([2.71])
+AC_INIT([GRUB],[0.97],[bug-grub@gnu.org])
 AC_CONFIG_SRCDIR([stage2/stage2.c])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
 
 AC_CANONICAL_HOST
@@ -77,7 +77,7 @@ else
 fi
 
 # optimization flags
-if test "x$ac_cv_prog_gcc" = xyes; then
+if test "x$ac_cv_c_compiler_gnu" = xyes; then
   if test "x$default_CFLAGS" = xyes; then
     # Autoconf may set CFLAGS to -O2 and/or -g. So eliminate them.
     CFLAGS="`echo $CFLAGS | sed -e 's/-g//g' -e 's/-O[[0-9]]//g'` -g"
@@ -90,7 +90,7 @@ if test "x$ac_cv_prog_gcc" = xyes; then
     AC_CACHE_CHECK([whether optimization for size works], size_flag, [
       saved_CFLAGS=$CFLAGS
       CFLAGS="-Os -g"
-      AC_TRY_COMPILE(, , size_flag=yes, size_flag=no)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[size_flag=yes],[size_flag=no])
       CFLAGS=$saved_CFLAGS
     ])
     if test "x$size_flag" = xyes; then
@@ -104,10 +104,7 @@ if test "x$ac_cv_prog_gcc" = xyes; then
 		   no_stack_protector_flag, [
       saved_CFLAGS=$CFLAGS
       CFLAGS="-fno-stack-protector"
-      AC_TRY_COMPILE(,
-		     ,
-		     no_stack_protector_flag=yes,
-		     no_stack_protector_flag=no)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[no_stack_protector_flag=yes],[no_stack_protector_flag=no])
       CFLAGS=$saved_CFLAGS
     ])
     if test "x$no_stack_protector_flag" = xyes; then
@@ -127,7 +124,7 @@ CPPFLAGS="$CPPFLAGS -Wpointer-arith"
 AC_CACHE_CHECK([whether -Wundef works], undef_flag, [
   saved_CPPFLAGS="$CPPFLAGS"
   CPPFLAGS="-Wundef"
-  AC_TRY_COMPILE(, , undef_flag=yes, undef_flag=no)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[undef_flag=yes],[undef_flag=no])
   CPPFLAGS="$saved_CPPFLAGS"
 ])
 
@@ -136,7 +133,7 @@ AC_CACHE_CHECK([whether -Wundef works], undef_flag, [
 AC_CACHE_CHECK([whether -falign-loops works], [falign_loop_flag], [
   saved_CPPFLAGS="$CPPFLAGS"
   CPPFLAGS="-falign-loops=1"
-  AC_TRY_COMPILE(, , [falign_loop_flag=yes], [falign_loop_flag=no])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[falign_loop_flag=yes],[falign_loop_flag=no])
   CPPFLAGS="$saved_CPPFLAGS"
 ])
 
