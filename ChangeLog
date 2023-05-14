@@ -1,3 +1,15 @@
+2023-05-15  Cristian Stoica <crististm@gmail.com>
+
+	* Revive grub-legacy to support again 32bit systems with floppy-disks
+	where grub2 is too large to fit
+	* Update build configuration files (with autotools 2.71)
+	* Resolve build issues with modern toolchains. The legacy grub builds
+	now with at least gcc-9.5 (tested down to 3.4.6) and binutils-2.37.
+	Tested also on Debian 10 with gcc-8.3.0 and binutils-2.31.1
+	* Include hystorical patches from Gentoo (ebuild grub-0.97-r12
+	with patch-set 1.14 containing 38 patches) as a non-NULL starting
+	point with fixes - (some of them may need amending)
+
 2008-05-20  Robert Millan  <rmh@aybabtu.com>
 
 	* netboot/cs89x0.c: Fix license violation.
