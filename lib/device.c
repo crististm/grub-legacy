@@ -893,6 +893,8 @@ write_to_partition (char **map, int drive, int partition,
   else
     {
       if ((strncmp (dev, "/dev/ataraid/", 13) == 0) ||
+         (strncmp (dev, "/dev/ida/", 9) == 0) ||
+         (strncmp (dev, "/dev/cciss/", 11) == 0) ||
          (strncmp (dev, "/dev/rd/", 8) == 0))
         strcpy (dev + strlen(dev), "p");
     }
