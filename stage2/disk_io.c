@@ -746,6 +746,8 @@ next_partition (unsigned long drive, unsigned long dest,
 #ifndef STAGE1_5
 static unsigned long cur_part_offset;
 static unsigned long cur_part_addr;
+static unsigned long cur_part_start;
+static int cur_part_entry;
 #endif
 
 /* Open a partition.  */
@@ -820,6 +822,8 @@ real_open_partition (int flags)
       
       cur_part_offset = part_offset;
       cur_part_addr = BOOT_PART_TABLE + (entry << 4);
+      cur_part_start = part_start;
+      cur_part_entry = entry;
 #endif /* ! STAGE1_5 */
 
       /* If this is a valid partition...  */
@@ -1147,6 +1151,7 @@ set_bootdev (int hdbias)
 	  src = (char *) SCRATCHADDR + BOOTSEC_PART_OFFSET;
 	  while (dst < (char *) BOOT_PART_TABLE + BOOTSEC_PART_LENGTH)
 	    *dst++ = *src++;
+	  PC_SLICE_START (BOOT_PART_TABLE - PC_SLICE_OFFSET, cur_part_entry) = cur_part_start;
 	  
 	  /* Set the active flag of the booted partition.  */
 	  for (i = 0; i < 4; i++)
