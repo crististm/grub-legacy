@@ -1214,7 +1214,7 @@ grub_strlen (const char *str)
 # endif
 #endif
 int
-memcheck (int addr, int len)
+memcheck (unsigned long addr, unsigned long len)
 {
 #ifdef GRUB_UTIL
 # ifdef __PIC__
@@ -1226,12 +1226,12 @@ memcheck (int addr, int len)
     return ! errnum;
 #  endif
 # else /* __PIC__ */
-  auto int start_addr (void);
-  auto int end_addr (void);
+  auto unsigned long start_addr (void);
+  auto unsigned long end_addr (void);
   
-  auto int start_addr (void)
+  auto unsigned long start_addr (void)
     {
-      int ret;
+      unsigned long ret;
 #  if defined(HAVE_START_SYMBOL)
       asm volatile ("movl	$start, %0" : "=a" (ret));
 #  elif defined(HAVE_USCORE_START_SYMBOL)
@@ -1242,9 +1242,9 @@ memcheck (int addr, int len)
       return ret;
     }
 
-  auto int end_addr (void)
+  auto unsigned long end_addr (void)
     {
-      int ret;
+      unsigned long ret;
 #  if defined(HAVE_END_SYMBOL)
       asm volatile ("movl	$end, %0" : "=a" (ret));
 #  elif defined(HAVE_USCORE_END_SYMBOL)
@@ -1283,7 +1283,7 @@ grub_memcpy(void *dest, const void *src, int len)
 void *
 grub_memmove (void *to, const void *from, int len)
 {
-   if (memcheck ((int) to, len))
+   if (memcheck ((unsigned long) to, len))
      {
        /* This assembly code is stolen from
 	  linux-2.2.2/include/asm-i386/string.h. This is not very fast
@@ -1321,7 +1321,7 @@ grub_memset (void *start, int c, int len)
 {
   char *p = start;
 
-  if (memcheck ((int) start, len))
+  if (memcheck ((unsigned long) start, len))
     {
       while (len -- > 0)
 	*p ++ = c;
