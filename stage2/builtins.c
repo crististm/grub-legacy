@@ -131,63 +131,98 @@ disk_read_print_func (int sector, int offset, int length)
 }
 
 
+/* blocklist_read_helper nee disk_read_blocklist_func was a nested
+ * function, to which pointers were taken and exposed globally.  Even
+ * in the GNU-C nested functions extension, they have local linkage,
+ * and aren't guaranteed to be accessable *at all* outside of their 
+ * containing scope.
+ *
+ * Above and beyond all of that, the variables within blocklist_func_context
+ * are originally local variables, with local (not even static) linkage,
+ * from within blocklist_func.  These were each referenced by
+ * disk_read_blocklist_func, which is only called from other functions
+ * through a globally scoped pointer.
+ * 
+ * The documentation in GCC actually uses the words "all hell will break
+ * loose" to describe this scenario.
+ *
+ * Also, "start_sector" was also used uninitialized, but gcc doesn't warn
+ * about it (possibly because of the scoping madness?)
+ */
+   
+static struct {
+       int start_sector;
+       int num_sectors;
+       int num_entries;
+       int last_length;
+} blocklist_func_context = {
+       .start_sector = 0,
+       .num_sectors = 0,
+       .num_entries = 0,
+       .last_length = 0
+};
+
+/* Collect contiguous blocks into one entry as many as possible,
+   and print the blocklist notation on the screen.  */
+static void
+blocklist_read_helper (int sector, int offset, int length)
+{
+  int *start_sector = &blocklist_func_context.start_sector;
+  int *num_sectors = &blocklist_func_context.num_sectors;
+  int *num_entries = &blocklist_func_context.num_entries;
+  int *last_length = &blocklist_func_context.last_length;
+
+  if (*num_sectors > 0)
+  {
+    if (*start_sector + *num_sectors == sector
+      && offset == 0 && *last_length == SECTOR_SIZE)
+    {
+      *num_sectors++;
+      *last_length = length;
+      return;
+    }
+    else
+    {
+      if (*last_length == SECTOR_SIZE)
+        grub_printf ("%s%d+%d", *num_entries ? "," : "",
+          *start_sector - part_start, *num_sectors);
+      else if (*num_sectors > 1)
+        grub_printf ("%s%d+%d,%d[0-%d]", *num_entries ? "," : "",
+          *start_sector - part_start, *num_sectors-1,
+          *start_sector + *num_sectors-1 - part_start, 
+          *last_length);
+      else
+        grub_printf ("%s%d[0-%d]", *num_entries ? "," : "",
+          *start_sector - part_start, *last_length);
+      *num_entries++;
+      *num_sectors = 0;
+    }
+  }
+
+  if (offset > 0)
+  {
+    grub_printf("%s%d[%d-%d]", *num_entries ? "," : "",
+          sector-part_start, offset, offset+length);
+    *num_entries++;
+  }
+  else
+  {
+    *start_sector = sector;
+    *num_sectors = 1;
+    *last_length = length;
+  }
+}
+
 /* blocklist */
 static int
 blocklist_func (char *arg, int flags)
 {
   char *dummy = (char *) RAW_ADDR (0x100000);
-  int start_sector;
-  int num_sectors = 0;
-  int num_entries = 0;
-  int last_length = 0;
 
-  auto void disk_read_blocklist_func (int sector, int offset, int length);
+  int *start_sector = &blocklist_func_context.start_sector;
+  int *num_sectors = &blocklist_func_context.num_sectors;
+  int *num_entries = &blocklist_func_context.num_entries;
   
-  /* Collect contiguous blocks into one entry as many as possible,
-     and print the blocklist notation on the screen.  */
-  auto void disk_read_blocklist_func (int sector, int offset, int length)
-    {
-      if (num_sectors > 0)
-	{
-	  if (start_sector + num_sectors == sector
-	      && offset == 0 && last_length == SECTOR_SIZE)
-	    {
-	      num_sectors++;
-	      last_length = length;
-	      return;
-	    }
-	  else
-	    {
-	      if (last_length == SECTOR_SIZE)
-		grub_printf ("%s%d+%d", num_entries ? "," : "",
-			     start_sector - part_start, num_sectors);
-	      else if (num_sectors > 1)
-		grub_printf ("%s%d+%d,%d[0-%d]", num_entries ? "," : "",
-			     start_sector - part_start, num_sectors-1,
-			     start_sector + num_sectors-1 - part_start, 
-			     last_length);
-	      else
-		grub_printf ("%s%d[0-%d]", num_entries ? "," : "",
-			     start_sector - part_start, last_length);
-	      num_entries++;
-	      num_sectors = 0;
-	    }
-	}
-
-      if (offset > 0)
-	{
-	  grub_printf("%s%d[%d-%d]", num_entries ? "," : "",
-		      sector-part_start, offset, offset+length);
-	  num_entries++;
-	}
-      else
-	{
-	  start_sector = sector;
-	  num_sectors = 1;
-	  last_length = length;
-	}
-    }
-
   /* Open the file.  */
   if (! grub_open (arg))
     return 1;
@@ -206,15 +241,15 @@ blocklist_func (char *arg, int flags)
   grub_printf (")");
 
   /* Read in the whole file to DUMMY.  */
-  disk_read_hook = disk_read_blocklist_func;
+  disk_read_hook = blocklist_read_helper;
   if (! grub_read (dummy, -1))
     goto fail;
 
   /* The last entry may not be printed yet.  Don't check if it is a
    * full sector, since it doesn't matter if we read too much. */
-  if (num_sectors > 0)
-    grub_printf ("%s%d+%d", num_entries ? "," : "",
-		 start_sector - part_start, num_sectors);
+  if (*num_sectors > 0)
+	grub_printf ("%s%d+%d", *num_entries ? "," : "",
+                *start_sector - part_start, *num_sectors);
 
   grub_printf ("\n");
   
@@ -1872,6 +1907,77 @@ static struct builtin builtin_initrd =
 
 
 /* install */
+static struct {
+       int saved_sector;
+       int installaddr;
+       int installlist;
+       char *stage2_first_buffer;
+} install_func_context = {
+       .saved_sector = 0,
+       .installaddr = 0,
+       .installlist = 0,
+       .stage2_first_buffer = NULL,
+};
+
+/* Save the first sector of Stage2 in STAGE2_SECT.  */
+/* Formerly disk_read_savesect_func with local scope inside install_func */
+static void
+install_savesect_helper(int sector, int offset, int length)
+{
+  if (debug)
+    printf ("[%d]", sector);
+
+  /* ReiserFS has files which sometimes contain data not aligned
+     on sector boundaries.  Returning an error is better than
+     silently failing. */
+  if (offset != 0 || length != SECTOR_SIZE)
+    errnum = ERR_UNALIGNED;
+
+  install_func_context.saved_sector = sector;
+}
+
+/* Write SECTOR to INSTALLLIST, and update INSTALLADDR and  INSTALLSECT.  */
+/* Formerly disk_read_blocklist_func with local scope inside install_func */
+static void
+install_blocklist_helper (int sector, int offset, int length)
+{
+  int *installaddr = &install_func_context.installaddr;
+  int *installlist = &install_func_context.installlist;
+  char **stage2_first_buffer = &install_func_context.stage2_first_buffer;
+  /* Was the last sector full? */
+  static int last_length = SECTOR_SIZE;
+
+  if (debug)
+    printf("[%d]", sector);
+
+  if (offset != 0 || last_length != SECTOR_SIZE)
+    {
+      /* We found a non-sector-aligned data block. */
+      errnum = ERR_UNALIGNED;
+      return;
+    }
+
+  last_length = length;
+
+  if (*((unsigned long *) (*installlist - 4))
+      + *((unsigned short *) *installlist) != sector
+      || *installlist == (int) *stage2_first_buffer + SECTOR_SIZE + 4)
+    {
+      *installlist -= 8;
+
+      if (*((unsigned long *) (*installlist - 8)))
+        errnum = ERR_WONT_FIT;
+      else
+        {
+          *((unsigned short *) (*installlist + 2)) = (*installaddr >> 4);
+          *((unsigned long *) (*installlist - 4)) = sector;
+        }
+    }
+
+  *((unsigned short *) *installlist) += 1;
+  *installaddr += 512;
+}
+
 static int
 install_func (char *arg, int flags)
 {
@@ -1879,8 +1985,12 @@ install_func (char *arg, int flags)
   char *stage1_buffer = (char *) RAW_ADDR (0x100000);
   char *stage2_buffer = stage1_buffer + SECTOR_SIZE;
   char *old_sect = stage2_buffer + SECTOR_SIZE;
-  char *stage2_first_buffer = old_sect + SECTOR_SIZE;
-  char *stage2_second_buffer = stage2_first_buffer + SECTOR_SIZE;
+  /* stage2_first_buffer used to be defined as:
+   * char *stage2_first_buffer = old_sect + SECTOR_SIZE;  */
+  char **stage2_first_buffer = &install_func_context.stage2_first_buffer;
+  /* and stage2_second_buffer was:
+   * char *stage2_second_buffer = stage2_first_buffer + SECTOR_SIZE; */
+  char *stage2_second_buffer = old_sect + SECTOR_SIZE + SECTOR_SIZE;
   /* XXX: Probably SECTOR_SIZE is reasonable.  */
   char *config_filename = stage2_second_buffer + SECTOR_SIZE;
   char *dummy = config_filename + SECTOR_SIZE;
@@ -1889,10 +1999,11 @@ install_func (char *arg, int flags)
   int src_drive, src_partition, src_part_start;
   int i;
   struct geometry dest_geom, src_geom;
-  int saved_sector;
+  int *saved_sector = &install_func_context.saved_sector;
   int stage2_first_sector, stage2_second_sector;
   char *ptr;
-  int installaddr, installlist;
+  int *installaddr = &install_func_context.installaddr;
+  int *installlist = &install_func_context.installlist;
   /* Point to the location of the name of a configuration file in Stage 2.  */
   char *config_file_location;
   /* If FILE is a Stage 1.5?  */
@@ -1901,67 +2012,13 @@ install_func (char *arg, int flags)
   int is_open = 0;
   /* If LBA is forced?  */
   int is_force_lba = 0;
-  /* Was the last sector full? */
-  int last_length = SECTOR_SIZE;
-  
+
+  *stage2_first_buffer = old_sect + SECTOR_SIZE;
 #ifdef GRUB_UTIL
   /* If the Stage 2 is in a partition mounted by an OS, this will store
      the filename under the OS.  */
   char *stage2_os_file = 0;
 #endif /* GRUB_UTIL */
-  
-  auto void disk_read_savesect_func (int sector, int offset, int length);
-  auto void disk_read_blocklist_func (int sector, int offset, int length);
-  
-  /* Save the first sector of Stage2 in STAGE2_SECT.  */
-  auto void disk_read_savesect_func (int sector, int offset, int length)
-    {
-      if (debug)
-	printf ("[%d]", sector);
-
-      /* ReiserFS has files which sometimes contain data not aligned
-         on sector boundaries.  Returning an error is better than
-         silently failing. */
-      if (offset != 0 || length != SECTOR_SIZE)
-	errnum = ERR_UNALIGNED;
-
-      saved_sector = sector;
-    }
-
-  /* Write SECTOR to INSTALLLIST, and update INSTALLADDR and
-     INSTALLSECT.  */
-  auto void disk_read_blocklist_func (int sector, int offset, int length)
-    {
-      if (debug)
-	printf("[%d]", sector);
-
-      if (offset != 0 || last_length != SECTOR_SIZE)
-	{
-	  /* We found a non-sector-aligned data block. */
-	  errnum = ERR_UNALIGNED;
-	  return;
-	}
-
-      last_length = length;
-
-      if (*((unsigned long *) (installlist - 4))
-	  + *((unsigned short *) installlist) != sector
-	  || installlist == (int) stage2_first_buffer + SECTOR_SIZE + 4)
-	{
-	  installlist -= 8;
-
-	  if (*((unsigned long *) (installlist - 8)))
-	    errnum = ERR_WONT_FIT;
-	  else
-	    {
-	      *((unsigned short *) (installlist + 2)) = (installaddr >> 4);
-	      *((unsigned long *) (installlist - 4)) = sector;
-	    }
-	}
-
-      *((unsigned short *) installlist) += 1;
-      installaddr += 512;
-    }
 
   /* First, check the GNU-style long option.  */
   while (1)
@@ -1994,10 +2051,10 @@ install_func (char *arg, int flags)
   addr = skip_to (0, file);
 
   /* Get the installation address.  */
-  if (! safe_parse_maxint (&addr, &installaddr))
+  if (! safe_parse_maxint (&addr, installaddr))
     {
       /* ADDR is not specified.  */
-      installaddr = 0;
+      *installaddr = 0;
       ptr = addr;
       errnum = 0;
     }
@@ -2093,17 +2150,17 @@ install_func (char *arg, int flags)
       = 0x9090;
   
   /* Read the first sector of Stage 2.  */
-  disk_read_hook = disk_read_savesect_func;
-  if (grub_read (stage2_first_buffer, SECTOR_SIZE) != SECTOR_SIZE)
+  disk_read_hook = install_savesect_helper;
+  if (grub_read (*stage2_first_buffer, SECTOR_SIZE) != SECTOR_SIZE)
     goto fail;
 
-  stage2_first_sector = saved_sector;
+  stage2_first_sector = *saved_sector;
   
   /* Read the second sector of Stage 2.  */
   if (grub_read (stage2_second_buffer, SECTOR_SIZE) != SECTOR_SIZE)
     goto fail;
 
-  stage2_second_sector = saved_sector;
+  stage2_second_sector = *saved_sector;
   
   /* Check for the version of Stage 2.  */
   if (*((short *) (stage2_second_buffer + STAGE2_VER_MAJ_OFFS))
@@ -2119,27 +2176,27 @@ install_func (char *arg, int flags)
 
   /* If INSTALLADDR is not specified explicitly in the command-line,
      determine it by the Stage 2 id.  */
-  if (! installaddr)
+  if (! *installaddr)
     {
       if (! is_stage1_5)
 	/* Stage 2.  */
-	installaddr = 0x8000;
+	*installaddr = 0x8000;
       else
 	/* Stage 1.5.  */
-	installaddr = 0x2000;
+	*installaddr = 0x2000;
     }
 
   *((unsigned long *) (stage1_buffer + STAGE1_STAGE2_SECTOR))
     = stage2_first_sector;
   *((unsigned short *) (stage1_buffer + STAGE1_STAGE2_ADDRESS))
-    = installaddr;
+    = *installaddr;
   *((unsigned short *) (stage1_buffer + STAGE1_STAGE2_SEGMENT))
-    = installaddr >> 4;
+    = *installaddr >> 4;
 
-  i = (int) stage2_first_buffer + SECTOR_SIZE - 4;
+  i = (int) *stage2_first_buffer + SECTOR_SIZE - 4;
   while (*((unsigned long *) i))
     {
-      if (i < (int) stage2_first_buffer
+      if (i < (int) *stage2_first_buffer
 	  || (*((int *) (i - 4)) & 0x80000000)
 	  || *((unsigned short *) i) >= 0xA00
 	  || *((short *) (i + 2)) == 0)
@@ -2153,13 +2210,13 @@ install_func (char *arg, int flags)
       i -= 8;
     }
 
-  installlist = (int) stage2_first_buffer + SECTOR_SIZE + 4;
-  installaddr += SECTOR_SIZE;
+  *installlist = (int) *stage2_first_buffer + SECTOR_SIZE + 4;
+  *installaddr += SECTOR_SIZE;
   
   /* Read the whole of Stage2 except for the first sector.  */
   grub_seek (SECTOR_SIZE);
 
-  disk_read_hook = disk_read_blocklist_func;
+  disk_read_hook = install_blocklist_helper;
   if (! grub_read (dummy, -1))
     goto fail;
   
@@ -2242,7 +2299,7 @@ install_func (char *arg, int flags)
 	  /* Skip the first sector.  */
 	  grub_seek (SECTOR_SIZE);
 	  
-	  disk_read_hook = disk_read_savesect_func;
+	  disk_read_hook = install_savesect_helper;
 	  if (grub_read (stage2_buffer, SECTOR_SIZE) != SECTOR_SIZE)
 	    goto fail;
 	  
@@ -2312,7 +2369,7 @@ install_func (char *arg, int flags)
 	  else
 #endif /* GRUB_UTIL */
 	    {
-	      if (! devwrite (saved_sector - part_start, 1, stage2_buffer))
+	      if (! devwrite (*saved_sector - part_start, 1, stage2_buffer))
 		goto fail;
 	    }
 	}
@@ -2334,7 +2391,7 @@ install_func (char *arg, int flags)
 	  goto fail;
 	}
 
-      if (fwrite (stage2_first_buffer, 1, SECTOR_SIZE, fp) != SECTOR_SIZE)
+      if (fwrite (*stage2_first_buffer, 1, SECTOR_SIZE, fp) != SECTOR_SIZE)
 	{
 	  fclose (fp);
 	  errnum = ERR_WRITE;
@@ -2361,7 +2418,7 @@ install_func (char *arg, int flags)
 	goto fail;
 
       if (! devwrite (stage2_first_sector - src_part_start, 1,
-		      stage2_first_buffer))
+		      *stage2_first_buffer))
 	goto fail;
 
       if (! devwrite (stage2_second_sector - src_part_start, 1,

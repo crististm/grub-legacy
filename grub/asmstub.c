@@ -42,6 +42,7 @@ int grub_stage2 (void);
 #include <sys/time.h>
 #include <termios.h>
 #include <signal.h>
+#include <sys/mman.h>
 
 #ifdef __linux__
 # include <sys/ioctl.h>		/* ioctl */
@@ -79,7 +80,7 @@ unsigned short io_map[IO_MAP_SIZE];
 struct apm_info apm_bios_info;
 
 /* Emulation requirements. */
-char *grub_scratch_mem = 0;
+void *grub_scratch_mem = 0;
 
 struct geometry *disks = 0;
 
@@ -103,14 +104,62 @@ static char *serial_device = 0;
 static unsigned int serial_speed;
 #endif /* SIMULATE_SLOWNESS_OF_SERIAL */
 
+/* This allocates page-aligned storage of the specified size, which must be
+ * a multiple of the page size as determined by calling sysconf(_SC_PAGESIZE)
+ */
+#ifdef __linux__
+static void *
+grub_mmap_alloc(size_t len)
+{
+  int mmap_flags = MAP_ANONYMOUS|MAP_PRIVATE;
+
+#ifdef MAP_32BIT
+  mmap_flags |= MAP_32BIT;
+#endif
+  /* Mark the simulated stack executable, as GCC uses stack trampolines
+   * to implement nested functions. */
+  return mmap(NULL, len, PROT_READ|PROT_WRITE|PROT_EXEC, mmap_flags, -1, 0);
+}
+#else /* !defined(__linux__) */
+static void *
+grub_mmap_alloc(size_t len)
+{
+  int fd = 0, offset = 0, ret = 0;
+  void *pa = MAP_FAILED; 
+  char template[] = "/tmp/grub_mmap_alloc_XXXXXX";
+  int e;
+
+  fd = mkstemp(template);
+  if (fd < 0)
+    return pa;
+
+  unlink(template);
+
+  ret = ftruncate(fd, len);
+  if (ret < 0)
+    return pa;
+
+  /* Mark the simulated stack executable, as GCC uses stack trampolines
+   * to implement nested functions. */
+  pa = mmap(NULL, len, PROT_READ|PROT_WRITE|PROT_EXEC,
+                  MAP_PRIVATE, fd, offset);
+
+  e = errno;
+  close(fd);
+  errno = e;
+  return pa;
+}
+#endif /* defined(__linux__) */
+
 /* The main entry point into this mess. */
 int
 grub_stage2 (void)
 {
   /* These need to be static, because they survive our stack transitions. */
   static int status = 0;
-  static char *realstack;
-  char *scratch, *simstack;
+  static void *realstack;
+  void *simstack_alloc_base, *simstack;
+  size_t simstack_size, page_size;
   int i;
 
   auto void doit (void);
@@ -142,9 +191,35 @@ grub_stage2 (void)
     }
 
   assert (grub_scratch_mem == 0);
-  scratch = malloc (0x100000 + EXTENDED_MEMSIZE + 15);
-  assert (scratch);
-  grub_scratch_mem = (char *) ((((int) scratch) >> 4) << 4);
+
+  /* Allocate enough pages for 0x100000 + EXTENDED_SIZE + 15, and
+   * make sure the memory is aligned to a multiple of the system's
+   * page size */
+  page_size = sysconf (_SC_PAGESIZE);
+  simstack_size = ( 0x100000 + EXTENDED_MEMSIZE + 15);
+  if (simstack_size % page_size)
+    {
+      /* If we're not on a page_size boundary, round up to the next one */
+      simstack_size &= ~(page_size-1);
+      simstack_size += page_size;
+    }
+
+  /* Add one for a PROT_NONE boundary page at each end. */
+  simstack_size += 2 * page_size;
+
+  simstack_alloc_base = grub_mmap_alloc(simstack_size);
+  assert (simstack_alloc_base != MAP_FAILED);
+
+  /* mark pages above and below our simstack area as innaccessable.
+   * If the implementation we're using doesn't support that, then the
+   * new protection modes are undefined.  It's safe to just ignore
+   * them, though.  It'd be nice if we knew that we'd get a SEGV for
+   * touching the area, but that's all.  it'd be nice to have. */
+  mprotect (simstack_alloc_base, page_size, PROT_NONE);
+  mprotect ((void *)((unsigned long)simstack_alloc_base +
+                         simstack_size - page_size),  page_size, PROT_NONE);
+
+  grub_scratch_mem = (void *)((unsigned long)simstack_alloc_base + page_size);
 
   /* FIXME: simulate the memory holes using mprot, if available. */
 
@@ -217,7 +292,7 @@ grub_stage2 (void)
   device_map = 0;
   free (disks);
   disks = 0;
-  free (scratch);
+  munmap(simstack_alloc_base, simstack_size);
   grub_scratch_mem = 0;
 
   if (serial_device)

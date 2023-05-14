@@ -36,8 +36,8 @@
 
 /* Maybe redirect memory requests through grub_scratch_mem. */
 #ifdef GRUB_UTIL
-extern char *grub_scratch_mem;
-# define RAW_ADDR(x) ((x) + (int) grub_scratch_mem)
+extern void *grub_scratch_mem;
+# define RAW_ADDR(x) ((x) + (unsigned long) grub_scratch_mem)
 # define RAW_SEG(x) (RAW_ADDR ((x) << 4) >> 4)
 #else
 # define RAW_ADDR(x) (x)
