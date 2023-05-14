@@ -12,10 +12,10 @@ dnl "AS IS" CONDITION.  THE FREE SOFTWARE FOUNDATION DISCLAIMS ANY
 dnl LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 dnl USE OF THIS SOFTWARE.
 
-AC_PREREQ(2.57)
-AC_INIT([GRUB], [0.97], [bug-grub@gnu.org])
+AC_PREREQ([2.71])
+AC_INIT([GRUB],[0.97],[bug-grub@gnu.org])
 AC_CONFIG_SRCDIR([stage2/stage2.c])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
 
 AC_CANONICAL_HOST
@@ -75,7 +75,7 @@ else
 fi
 
 # optimization flags
-if test "x$ac_cv_prog_gcc" = xyes; then
+if test "x$ac_cv_c_compiler_gnu" = xyes; then
   if test "x$default_CFLAGS" = xyes; then
     # Autoconf may set CFLAGS to -O2 and/or -g. So eliminate them.
     CFLAGS="`echo $CFLAGS | sed -e 's/-g//g' -e 's/-O[[0-9]]//g'` -g"
@@ -88,7 +88,7 @@ if test "x$ac_cv_prog_gcc" = xyes; then
     AC_CACHE_CHECK([whether optimization for size works], grub_cv_cc_Os, [
       saved_CFLAGS=$CFLAGS
       CFLAGS="-Os -g"
-      AC_TRY_COMPILE(, , grub_cv_cc_Os=yes, grub_cv_cc_Os=no)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[grub_cv_cc_Os=yes],[grub_cv_cc_Os=no])
       CFLAGS=$saved_CFLAGS
     ])
     if test "x$grub_cv_cc_Os" = xyes; then
@@ -102,10 +102,7 @@ if test "x$ac_cv_prog_gcc" = xyes; then
 		   grub_cv_cc_no_stack_protector, [
       saved_CFLAGS=$CFLAGS
       CFLAGS="-fno-stack-protector"
-      AC_TRY_COMPILE(,
-		     ,
-		     grub_cv_cc_no_stack_protector=yes,
-		     grub_cv_cc_no_stack_protector=no)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[grub_cv_cc_no_stack_protector=yes],[grub_cv_cc_no_stack_protector=no])
       CFLAGS=$saved_CFLAGS
     ])
     if test "x$grub_cv_cc_no_stack_protector" = xyes; then
@@ -113,13 +110,11 @@ if test "x$ac_cv_prog_gcc" = xyes; then
     fi
     # Position Independent Executables, but GRUB doesn't want this feature.
     AC_CACHE_CHECK([whether gcc has -fPIE on as default], grub_cv_cc_fpie, [
-      AC_TRY_COMPILE(,[
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 		#if ! defined (__PIC__) || ! defined (__PIE__)
 		#error
 		#endif
-		],
-            grub_cv_cc_fpie=yes,
-            grub_cv_cc_fpie=no)
+		]])],[grub_cv_cc_fpie=yes],[grub_cv_cc_fpie=no])
     ])
     if test "x$grub_cv_cc_fpie" = xyes; then
       STAGE1_CFLAGS="$STAGE1_CFLAGS -nopie"
@@ -142,7 +137,7 @@ CPPFLAGS="$CPPFLAGS -Wpointer-arith"
 AC_CACHE_CHECK([whether -Wundef works], grub_cv_cc_Wundef, [
   saved_CPPFLAGS="$CPPFLAGS"
   CPPFLAGS="-Wundef"
-  AC_TRY_COMPILE(, , grub_cv_cc_Wundef=yes, grub_cv_cc_Wundef=no)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[grub_cv_cc_Wundef=yes],[grub_cv_cc_Wundef=no])
   CPPFLAGS="$saved_CPPFLAGS"
 ])
 
@@ -151,7 +146,7 @@ AC_CACHE_CHECK([whether -Wundef works], grub_cv_cc_Wundef, [
 AC_CACHE_CHECK([whether -falign-loops works], [grub_cv_cc_falign_loop], [
   saved_CPPFLAGS="$CPPFLAGS"
   CPPFLAGS="-falign-loops=1"
-  AC_TRY_COMPILE(, , [grub_cv_cc_falign_loop=yes], [grub_cv_cc_falign_loop=no])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[grub_cv_cc_falign_loop=yes],[grub_cv_cc_falign_loop=no])
   CPPFLAGS="$saved_CPPFLAGS"
 ])
 
@@ -170,7 +165,7 @@ fi
 AC_MSG_CHECKING([whether linker accepts `--build-id=none'])
 save_LDFLAGS="$LDFLAGS"
 LDFLAGS="$LDFLAGS -Wl,--build-id=none"
-AC_TRY_LINK(, , build_id_flag=yes, build_id_flag=no)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[build_id_flag=yes],[build_id_flag=no])
 AC_MSG_RESULT([$build_id_flag])
 LDFLAGS="$save_LDFLAGS"
 if test "x$build_id_flag" = xyes; then
