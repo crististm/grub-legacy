@@ -65,7 +65,7 @@
 /* Turn on DTR, RTS, and OUT2.  */
 #define UART_ENABLE_MODEM	0x0B
 
-
+
 /* Function prototypes.  */
 
 /* Fetch a key.  */

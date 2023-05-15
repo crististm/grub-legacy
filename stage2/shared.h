@@ -36,8 +36,8 @@
 
 /* Maybe redirect memory requests through grub_scratch_mem. */
 #ifdef GRUB_UTIL
-extern char *grub_scratch_mem;
-# define RAW_ADDR(x) ((x) + (int) grub_scratch_mem)
+extern void *grub_scratch_mem;
+# define RAW_ADDR(x) ((x) + (unsigned long) grub_scratch_mem)
 # define RAW_SEG(x) (RAW_ADDR ((x) << 4) >> 4)
 #else
 # define RAW_ADDR(x) (x)
@@ -161,7 +161,9 @@ extern char *grub_scratch_mem;
 
 #define LINUX_CL_OFFSET			0x9000
 #define LINUX_CL_END_OFFSET		0x90FF
-#define LINUX_SETUP_MOVE_SIZE		0x9100
+#define LINUX_CL_0202_PRM_OFFSET	0x9500
+#define LINUX_CL_0202_PRM_END_OFFSET	0x9FFF
+#define LINUX_SETUP_MOVE_SIZE		0xA000
 #define LINUX_CL_MAGIC			0xA33F
 
 /*
@@ -499,7 +501,11 @@ struct vbe_mode
   unsigned char linear_reserved_field_position;
   unsigned long max_pixel_clock;
 
-  unsigned char reserved3[189];
+  /* Reserved field to make structure to be 256 bytes long, VESA BIOS
+     Extension 3.0 Specification says to reserve 189 bytes here but
+     that doesn't make structure to be 256 bytes.  So additional one is
+     added here.  */
+  unsigned char reserved3[189 + 1];
 } __attribute__ ((packed));
 
 
@@ -807,7 +813,7 @@ int checkkey (void);
 /* Low-level disk I/O */
 int get_diskinfo (int drive, struct geometry *geometry);
 int biosdisk (int subfunc, int drive, struct geometry *geometry,
-	      int sector, int nsec, int segment);
+	      unsigned int sector, int nsec, int segment);
 void stop_floppy (void);
 
 /* Command-line interface functions. */
@@ -871,6 +877,7 @@ int grub_sprintf (char *buffer, const char *format, ...);
 int grub_tolower (int c);
 int grub_isspace (int c);
 int grub_strncat (char *s1, const char *s2, int n);
+void grub_memcpy(void *dest, const void *src, int len);
 void *grub_memmove (void *to, const void *from, int len);
 void *grub_memset (void *start, int c, int len);
 int grub_strncat (char *s1, const char *s2, int n);
@@ -911,7 +918,7 @@ int substring (const char *s1, const char *s2);
 int nul_terminate (char *str);
 int get_based_digit (int c, int base);
 int safe_parse_maxint (char **str_ptr, int *myint_ptr);
-int memcheck (int start, int len);
+int memcheck (unsigned long start, unsigned long len);
 void grub_putstr (const char *str);
 
 #ifndef NO_DECOMPRESSION
@@ -920,10 +927,10 @@ int gunzip_test_header (void);
 int gunzip_read (char *buf, int len);
 #endif /* NO_DECOMPRESSION */
 
-int rawread (int drive, int sector, int byte_offset, int byte_len, char *buf);
-int devread (int sector, int byte_offset, int byte_len, char *buf);
-int rawwrite (int drive, int sector, char *buf);
-int devwrite (int sector, int sector_len, char *buf);
+int rawread (int drive, unsigned int sector, int byte_offset, int byte_len, char *buf);
+int devread (unsigned int sector, int byte_offset, int byte_len, char *buf);
+int rawwrite (int drive, unsigned int sector, char *buf);
+int devwrite (unsigned int sector, int sector_len, char *buf);
 
 /* Parse a device string and initialize the global parameters. */
 char *set_device (char *device);
@@ -934,7 +941,9 @@ int next_partition (unsigned long drive, unsigned long dest,
 		    unsigned long *partition, int *type,
 		    unsigned long *start, unsigned long *len,
 		    unsigned long *offset, int *entry,
-		    unsigned long *ext_offset, char *buf);
+                   unsigned long *ext_offset,
+                   unsigned long *gpt_offset, int *gpt_count,
+                   int *gpt_size, char *buf);
 
 /* Sets device to the one represented by the SAVED_* parameters. */
 int make_saved_active (void);

@@ -21,8 +21,12 @@ AM_INIT_AUTOMAKE
 AC_CANONICAL_HOST
 
 case "$host_cpu" in
-i[[3456]]86) host_cpu=i386 ;;
-x86_64) host_cpu=x86_64 ;;
+i[[3456]]86)
+  STAGE_MARCH="-march=$host_cpu"
+  host_cpu=i386 ;;
+x86_64)
+  STAGE_MARCH="-march=i686"
+  host_cpu=x86_64 ;;
 *) AC_MSG_ERROR([unsupported CPU type]) ;;
 esac
 
@@ -57,12 +61,6 @@ fi
 AC_CHECK_TOOL(CC, gcc)
 AC_PROG_CC
 AM_PROG_AS
-# We need this for older versions of Autoconf.
-_AM_DEPENDENCIES(CC)
-
-dnl Because recent automake complains about AS, set it here.
-CCAS="$CC"
-AC_SUBST(CCAS)
 
 AC_ARG_WITH(binutils,
   [  --with-binutils=DIR     search the directory DIR to find binutils])
@@ -110,9 +108,24 @@ if test "x$ac_cv_c_compiler_gnu" = xyes; then
     if test "x$grub_cv_no_stack_protector_flag" = xyes; then
       STAGE2_CFLAGS="$STAGE2_CFLAGS -fno-stack-protector"
     fi
+    # Position Independent Executables, but GRUB doesn't want this feature.
+    AC_CACHE_CHECK([whether gcc has -fPIE on as default], grub_cv_cc_fpie, [
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
+		#if ! defined (__PIC__) || ! defined (__PIE__)
+		#error
+		#endif
+		]])],[grub_cv_cc_fpie=yes],[grub_cv_cc_fpie=no])
+    ])
+    if test "x$grub_cv_cc_fpie" = xyes; then
+      STAGE1_CFLAGS="$STAGE1_CFLAGS -nopie"
+      STAGE2_CFLAGS="$STAGE2_CFLAGS -nopie"
+    fi
   fi
 fi
 
+STAGE1_CFLAGS="$STAGE1_CFLAGS -fno-strict-aliasing $STAGE_MARCH"
+STAGE2_CFLAGS="$STAGE2_CFLAGS -fno-strict-aliasing $STAGE_MARCH"
+GRUB_CFLAGS="$GRUB_CFLAGS -fno-strict-aliasing"
 AC_SUBST(STAGE1_CFLAGS)
 AC_SUBST(STAGE2_CFLAGS)
 AC_SUBST(GRUB_CFLAGS)
@@ -146,6 +159,17 @@ fi
 
 if test "x$grub_cv_undef_flag" = xyes; then
   CPPFLAGS="$CPPFLAGS -Wundef"
+fi
+
+# Check if build ID can be disabled in the linker
+AC_MSG_CHECKING([whether linker accepts `--build-id=none'])
+save_LDFLAGS="$LDFLAGS"
+LDFLAGS="$LDFLAGS -Wl,--build-id=none"
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[build_id_flag=yes],[build_id_flag=no])
+AC_MSG_RESULT([$build_id_flag])
+LDFLAGS="$save_LDFLAGS"
+if test "x$build_id_flag" = xyes; then
+  LDFLAGS="$LDFLAGS -Wl,--build-id=none"
 fi
 
 if test "x$with_binutils" != x; then
@@ -592,6 +616,11 @@ dnl Diskless
 AC_ARG_ENABLE(diskless,
   [  --enable-diskless       enable diskless support])
 AM_CONDITIONAL(DISKLESS_SUPPORT, test "x$enable_diskless" = xyes)
+
+dnl Graphical splashscreen support
+AC_ARG_ENABLE(graphics,
+  [  --disable-graphics      disable graphics terminal support])
+AM_CONDITIONAL(GRAPHICS_SUPPORT, test "x$enable_graphics" != xno)
 
 dnl Hercules terminal
 AC_ARG_ENABLE(hercules,

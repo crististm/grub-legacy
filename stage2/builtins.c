@@ -130,64 +130,98 @@ disk_read_print_func (int sector, int offset, int length)
   grub_printf ("[%d,%d,%d]", sector, offset, length);
 }
 
-
+/* blocklist_read_helper nee disk_read_blocklist_func was a nested
+ * function, to which pointers were taken and exposed globally.  Even
+ * in the GNU-C nested functions extension, they have local linkage,
+ * and aren't guaranteed to be accessable *at all* outside of their 
+ * containing scope.
+ *
+ * Above and beyond all of that, the variables within blocklist_func_context
+ * are originally local variables, with local (not even static) linkage,
+ * from within blocklist_func.  These were each referenced by
+ * disk_read_blocklist_func, which is only called from other functions
+ * through a globally scoped pointer.
+ * 
+ * The documentation in GCC actually uses the words "all hell will break
+ * loose" to describe this scenario.
+ *
+ * Also, "start_sector" was also used uninitialized, but gcc doesn't warn
+ * about it (possibly because of the scoping madness?)
+ */
+   
+static struct {
+       int start_sector;
+       int num_sectors;
+       int num_entries;
+       int last_length;
+} blocklist_func_context = {
+       .start_sector = 0,
+       .num_sectors = 0,
+       .num_entries = 0,
+       .last_length = 0
+};
+
+/* Collect contiguous blocks into one entry as many as possible,
+   and print the blocklist notation on the screen.  */
+static void
+blocklist_read_helper (int sector, int offset, int length)
+{
+  int *start_sector = &blocklist_func_context.start_sector;
+  int *num_sectors = &blocklist_func_context.num_sectors;
+  int *num_entries = &blocklist_func_context.num_entries;
+  int *last_length = &blocklist_func_context.last_length;
+
+  if (*num_sectors > 0)
+  {
+    if (*start_sector + *num_sectors == sector
+      && offset == 0 && *last_length == SECTOR_SIZE)
+    {
+      *num_sectors++;
+      *last_length = length;
+      return;
+    }
+    else
+    {
+      if (*last_length == SECTOR_SIZE)
+        grub_printf ("%s%d+%d", *num_entries ? "," : "",
+          *start_sector - part_start, *num_sectors);
+      else if (*num_sectors > 1)
+        grub_printf ("%s%d+%d,%d[0-%d]", *num_entries ? "," : "",
+          *start_sector - part_start, *num_sectors-1,
+          *start_sector + *num_sectors-1 - part_start, 
+          *last_length);
+      else
+        grub_printf ("%s%d[0-%d]", *num_entries ? "," : "",
+          *start_sector - part_start, *last_length);
+      *num_entries++;
+      *num_sectors = 0;
+    }
+  }
+
+  if (offset > 0)
+  {
+    grub_printf("%s%d[%d-%d]", *num_entries ? "," : "",
+          sector-part_start, offset, offset+length);
+    *num_entries++;
+  }
+  else
+  {
+    *start_sector = sector;
+    *num_sectors = 1;
+    *last_length = length;
+  }
+}
+
 /* blocklist */
 static int
 blocklist_func (char *arg, int flags)
 {
   char *dummy = (char *) RAW_ADDR (0x100000);
-  int start_sector;
-  int num_sectors = 0;
-  int num_entries = 0;
-  int last_length = 0;
 
-  auto void disk_read_blocklist_func (int sector, int offset, int length);
+  int *start_sector = &blocklist_func_context.start_sector;
+  int *num_sectors = &blocklist_func_context.num_sectors;
+  int *num_entries = &blocklist_func_context.num_entries;
   
-  /* Collect contiguous blocks into one entry as many as possible,
-     and print the blocklist notation on the screen.  */
-  auto void disk_read_blocklist_func (int sector, int offset, int length)
-    {
-      if (num_sectors > 0)
-	{
-	  if (start_sector + num_sectors == sector
-	      && offset == 0 && last_length == SECTOR_SIZE)
-	    {
-	      num_sectors++;
-	      last_length = length;
-	      return;
-	    }
-	  else
-	    {
-	      if (last_length == SECTOR_SIZE)
-		grub_printf ("%s%d+%d", num_entries ? "," : "",
-			     start_sector - part_start, num_sectors);
-	      else if (num_sectors > 1)
-		grub_printf ("%s%d+%d,%d[0-%d]", num_entries ? "," : "",
-			     start_sector - part_start, num_sectors-1,
-			     start_sector + num_sectors-1 - part_start, 
-			     last_length);
-	      else
-		grub_printf ("%s%d[0-%d]", num_entries ? "," : "",
-			     start_sector - part_start, last_length);
-	      num_entries++;
-	      num_sectors = 0;
-	    }
-	}
-
-      if (offset > 0)
-	{
-	  grub_printf("%s%d[%d-%d]", num_entries ? "," : "",
-		      sector-part_start, offset, offset+length);
-	  num_entries++;
-	}
-      else
-	{
-	  start_sector = sector;
-	  num_sectors = 1;
-	  last_length = length;
-	}
-    }
-
   /* Open the file.  */
   if (! grub_open (arg))
     return 1;
@@ -206,15 +240,15 @@ blocklist_func (char *arg, int flags)
   grub_printf (")");
 
   /* Read in the whole file to DUMMY.  */
-  disk_read_hook = disk_read_blocklist_func;
+  disk_read_hook = blocklist_read_helper;
   if (! grub_read (dummy, -1))
     goto fail;
 
   /* The last entry may not be printed yet.  Don't check if it is a
    * full sector, since it doesn't matter if we read too much. */
-  if (num_sectors > 0)
-    grub_printf ("%s%d+%d", num_entries ? "," : "",
-		 start_sector - part_start, num_sectors);
+  if (*num_sectors > 0)
+	grub_printf ("%s%d+%d", *num_entries ? "," : "",
+                *start_sector - part_start, *num_sectors);
 
   grub_printf ("\n");
   
@@ -318,7 +352,6 @@ static struct builtin builtin_boot =
   "Boot the OS/chain-loader which has been loaded."
 };
 
-
 #ifdef SUPPORT_NETBOOT
 /* bootp */
 static int
@@ -364,7 +397,6 @@ static struct builtin builtin_bootp =
 };
 #endif /* SUPPORT_NETBOOT */
 
-
 /* cat */
 static int
 cat_func (char *arg, int flags)
@@ -397,7 +429,6 @@ static struct builtin builtin_cat =
   "Print the contents of the file FILE."
 };
 
-
 /* chainloader */
 static int
 chainloader_func (char *arg, int flags)
@@ -470,7 +501,6 @@ static struct builtin builtin_chainloader =
   " forcibly, whether the boot loader signature is present or not."
 };
 
-
 /* This function could be used to debug new filesystem code. Put a file
    in the new filesystem and the same file in a well-tested filesystem.
    Then, run "cmp" with the files. If no output is obtained, probably
@@ -559,7 +589,6 @@ static struct builtin builtin_cmp =
   " if any."
 };
 
-
 /* color */
 /* Set new colors used for the menu interface. Support two methods to
    specify a color name: a direct integer representation and a symbolic
@@ -691,7 +720,6 @@ static struct builtin builtin_color =
   " \"blink-\" to FG if you want a blinking foreground color."
 };
 
-
 /* configfile */
 static int
 configfile_func (char *arg, int flags)
@@ -732,7 +760,6 @@ static struct builtin builtin_configfile =
   "Load FILE as the configuration file."
 };
 
-
 /* debug */
 static int
 debug_func (char *arg, int flags)
@@ -760,7 +787,6 @@ static struct builtin builtin_debug =
   "Turn on/off the debug mode."
 };
 
-
 /* default */
 static int
 default_func (char *arg, int flags)
@@ -791,7 +817,6 @@ static struct builtin builtin_default =
 #endif
 };
 
-
 #ifdef GRUB_UTIL
 /* device */
 static int
@@ -832,7 +857,6 @@ static struct builtin builtin_device =
 };
 #endif /* GRUB_UTIL */
 
-
 #ifdef SUPPORT_NETBOOT
 /* dhcp */
 static int
@@ -852,7 +876,134 @@ static struct builtin builtin_dhcp =
 };
 #endif /* SUPPORT_NETBOOT */
 
-
+static int terminal_func (char *arg, int flags);
+
+#ifdef SUPPORT_GRAPHICS
+static int splashimage_func(char *arg, int flags) {
+    char splashimage[64];
+    int i;
+
+    /* filename can only be 64 characters due to our buffer size */
+    if (strlen(arg) > 63)
+	return 1;
+    if (flags == BUILTIN_CMDLINE) {
+	if (!grub_open(arg))
+	    return 1;
+	grub_close();
+    }
+
+    strcpy(splashimage, arg);
+
+    /* get rid of TERM_NEED_INIT from the graphics terminal. */
+    for (i = 0; term_table[i].name; i++) {
+	if (grub_strcmp (term_table[i].name, "graphics") == 0) {
+	    term_table[i].flags &= ~TERM_NEED_INIT;
+	    break;
+	}
+    }
+
+    graphics_set_splash(splashimage);
+
+    if (flags == BUILTIN_CMDLINE && graphics_inited) {
+	graphics_end();
+	graphics_init();
+	graphics_cls();
+    }
+
+    /* FIXME: should we be explicitly switching the terminal as a
+     * side effect here? */
+    terminal_func("graphics", flags);
+
+    return 0;
+}
+
+static struct builtin builtin_splashimage =
+{
+  "splashimage",
+  splashimage_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "splashimage FILE",
+  "Load FILE as the background image when in graphics mode."
+};
+
+/* foreground */
+static int
+foreground_func(char *arg, int flags)
+{
+    if (grub_strlen(arg) == 6) {
+	int r = ((hex(arg[0]) << 4) | hex(arg[1])) >> 2;
+	int g = ((hex(arg[2]) << 4) | hex(arg[3])) >> 2;
+	int b = ((hex(arg[4]) << 4) | hex(arg[5])) >> 2;
+
+	foreground = (r << 16) | (g << 8) | b;
+	if (graphics_inited)
+	    graphics_set_palette(15, r, g, b);
+
+	return (0);
+    }
+
+    return (1);
+}
+
+static struct builtin builtin_foreground =
+{
+  "foreground",
+  foreground_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "foreground RRGGBB",
+  "Sets the foreground color when in graphics mode."
+  "RR is red, GG is green, and BB blue. Numbers must be in hexadecimal."
+};
+
+/* background */
+static int
+background_func(char *arg, int flags)
+{
+    if (grub_strlen(arg) == 6) {
+	int r = ((hex(arg[0]) << 4) | hex(arg[1])) >> 2;
+	int g = ((hex(arg[2]) << 4) | hex(arg[3])) >> 2;
+	int b = ((hex(arg[4]) << 4) | hex(arg[5])) >> 2;
+
+	background = (r << 16) | (g << 8) | b;
+	if (graphics_inited)
+	    graphics_set_palette(0, r, g, b);
+	return (0);
+    }
+
+    return (1);
+}
+
+static struct builtin builtin_background =
+{
+  "background",
+  background_func,
+  BUILTIN_CMDLINE | BUILTIN_MENU | BUILTIN_HELP_LIST,
+  "background RRGGBB",
+  "Sets the background color when in graphics mode."
+  "RR is red, GG is green, and BB blue. Numbers must be in hexadecimal."
+};
+
+#endif /* SUPPORT_GRAPHICS */
+
+/* clear */
+static int
+clear_func()
+{
+  if (current_term->cls)
+    current_term->cls();
+
+  return 0;
+}
+
+static struct builtin builtin_clear =
+{
+  "clear",
+  clear_func,
+  BUILTIN_CMDLINE | BUILTIN_HELP_LIST,
+  "clear",
+  "Clear the screen"
+};
+
 /* displayapm */
 static int
 displayapm_func (char *arg, int flags)
@@ -894,7 +1045,6 @@ static struct builtin builtin_displayapm =
   "Display APM BIOS information."
 };
 
-
 /* displaymem */
 static int
 displaymem_func (char *arg, int flags)
@@ -949,7 +1099,6 @@ static struct builtin builtin_displaymem =
   " machine is, including all regions of physical RAM installed."
 };
 
-
 /* dump FROM TO */
 #ifdef GRUB_UTIL
 static int
@@ -1009,7 +1158,6 @@ static struct builtin builtin_dump =
   };
 #endif /* GRUB_UTIL */
 
-
 static char embed_info[32];
 /* embed */
 /* Embed a Stage 1.5 in the first cylinder after MBR or in the
@@ -1144,7 +1292,6 @@ static struct builtin builtin_embed =
   " Print the number of sectors which STAGE1_5 occupies if successful."
 };
 
-
 /* fallback */
 static int
 fallback_func (char *arg, int flags)
@@ -1196,7 +1343,6 @@ static struct builtin builtin_fallback =
 #endif
 };
 
-
 /* find */
 /* Search for the filename ARG in all of partitions.  */
 static int
@@ -1233,14 +1379,15 @@ find_func (char *arg, int flags)
   for (drive = 0x80; drive < 0x88; drive++)
     {
       unsigned long part = 0xFFFFFF;
-      unsigned long start, len, offset, ext_offset;
-      int type, entry;
+      unsigned long start, len, offset, ext_offset, gpt_offset;
+      int type, entry, gpt_count, gpt_size;
       char buf[SECTOR_SIZE];
 
       current_drive = drive;
       while (next_partition (drive, 0xFFFFFF, &part, &type,
 			     &start, &len, &offset, &entry,
-			     &ext_offset, buf))
+                            &ext_offset, &gpt_offset,
+                            &gpt_count, &gpt_size, buf))
 	{
 	  if (type != PC_SLICE_TYPE_NONE
 	      && ! IS_PC_SLICE_TYPE_BSD (type)
@@ -1302,7 +1449,6 @@ static struct builtin builtin_find =
   " the devices which contain the file."
 };
 
-
 /* fstest */
 static int
 fstest_func (char *arg, int flags)
@@ -1330,7 +1476,6 @@ static struct builtin builtin_fstest =
   "Toggle filesystem test mode."
 };
 
-
 /* geometry */
 static int
 geometry_func (char *arg, int flags)
@@ -1428,7 +1573,6 @@ static struct builtin builtin_geometry =
   " on the C/H/S values automatically."
 };
 
-
 /* halt */
 static int
 halt_func (char *arg, int flags)
@@ -1452,7 +1596,6 @@ static struct builtin builtin_halt =
   " the APM BIOS, unless you specify the option `--no-apm'."
 };
 
-
 /* help */
 #define MAX_SHORT_DOC_LEN	39
 #define MAX_LONG_DOC_LEN	66
@@ -1580,7 +1723,6 @@ static struct builtin builtin_help =
   " aren't shown without the option `--all'."
 };
 
-
 /* hiddenmenu */
 static int
 hiddenmenu_func (char *arg, int flags)
@@ -1600,7 +1742,6 @@ static struct builtin builtin_hiddenmenu =
 #endif
 };
 
-
 /* hide */
 static int
 hide_func (char *arg, int flags)
@@ -1624,7 +1765,6 @@ static struct builtin builtin_hide =
   " its partition type code."
 };
 
-
 #ifdef SUPPORT_NETBOOT
 /* ifconfig */
 static int
@@ -1679,7 +1819,6 @@ static struct builtin builtin_ifconfig =
 };
 #endif /* SUPPORT_NETBOOT */
 
-
 /* impsprobe */
 static int
 impsprobe_func (char *arg, int flags)
@@ -1707,7 +1846,6 @@ static struct builtin builtin_impsprobe =
   " a tight loop."
 };
 
-
 /* initrd */
 static int
 initrd_func (char *arg, int flags)
@@ -1738,8 +1876,78 @@ static struct builtin builtin_initrd =
   " appropriate parameters in the Linux setup area in memory."
 };
 
-
 /* install */
+static struct {
+       int saved_sector;
+       int installaddr;
+       int installlist;
+       char *stage2_first_buffer;
+} install_func_context = {
+       .saved_sector = 0,
+       .installaddr = 0,
+       .installlist = 0,
+       .stage2_first_buffer = NULL,
+};
+
+/* Save the first sector of Stage2 in STAGE2_SECT.  */
+/* Formerly disk_read_savesect_func with local scope inside install_func */
+static void
+install_savesect_helper(int sector, int offset, int length)
+{
+  if (debug)
+    printf ("[%d]", sector);
+
+  /* ReiserFS has files which sometimes contain data not aligned
+     on sector boundaries.  Returning an error is better than
+     silently failing. */
+  if (offset != 0 || length != SECTOR_SIZE)
+    errnum = ERR_UNALIGNED;
+
+  install_func_context.saved_sector = sector;
+}
+
+/* Write SECTOR to INSTALLLIST, and update INSTALLADDR and  INSTALLSECT.  */
+/* Formerly disk_read_blocklist_func with local scope inside install_func */
+static void
+install_blocklist_helper (int sector, int offset, int length)
+{
+  int *installaddr = &install_func_context.installaddr;
+  int *installlist = &install_func_context.installlist;
+  char **stage2_first_buffer = &install_func_context.stage2_first_buffer;
+  /* Was the last sector full? */
+  static int last_length = SECTOR_SIZE;
+
+  if (debug)
+    printf("[%d]", sector);
+
+  if (offset != 0 || last_length != SECTOR_SIZE)
+    {
+      /* We found a non-sector-aligned data block. */
+      errnum = ERR_UNALIGNED;
+      return;
+    }
+
+  last_length = length;
+
+  if (*((unsigned long *) (*installlist - 4))
+      + *((unsigned short *) *installlist) != sector
+      || *installlist == (int) *stage2_first_buffer + SECTOR_SIZE + 4)
+    {
+      *installlist -= 8;
+
+      if (*((unsigned long *) (*installlist - 8)))
+        errnum = ERR_WONT_FIT;
+      else
+        {
+          *((unsigned short *) (*installlist + 2)) = (*installaddr >> 4);
+          *((unsigned long *) (*installlist - 4)) = sector;
+        }
+    }
+
+  *((unsigned short *) *installlist) += 1;
+  *installaddr += 512;
+}
+
 static int
 install_func (char *arg, int flags)
 {
@@ -1747,8 +1955,12 @@ install_func (char *arg, int flags)
   char *stage1_buffer = (char *) RAW_ADDR (0x100000);
   char *stage2_buffer = stage1_buffer + SECTOR_SIZE;
   char *old_sect = stage2_buffer + SECTOR_SIZE;
-  char *stage2_first_buffer = old_sect + SECTOR_SIZE;
-  char *stage2_second_buffer = stage2_first_buffer + SECTOR_SIZE;
+  /* stage2_first_buffer used to be defined as:
+   * char *stage2_first_buffer = old_sect + SECTOR_SIZE;  */
+  char **stage2_first_buffer = &install_func_context.stage2_first_buffer;
+  /* and stage2_second_buffer was:
+   * char *stage2_second_buffer = stage2_first_buffer + SECTOR_SIZE; */
+  char *stage2_second_buffer = old_sect + SECTOR_SIZE + SECTOR_SIZE;
   /* XXX: Probably SECTOR_SIZE is reasonable.  */
   char *config_filename = stage2_second_buffer + SECTOR_SIZE;
   char *dummy = config_filename + SECTOR_SIZE;
@@ -1757,10 +1969,11 @@ install_func (char *arg, int flags)
   int src_drive, src_partition, src_part_start;
   int i;
   struct geometry dest_geom, src_geom;
-  int saved_sector;
+  int *saved_sector = &install_func_context.saved_sector;
   int stage2_first_sector, stage2_second_sector;
   char *ptr;
-  int installaddr, installlist;
+  int *installaddr = &install_func_context.installaddr;
+  int *installlist = &install_func_context.installlist;
   /* Point to the location of the name of a configuration file in Stage 2.  */
   char *config_file_location;
   /* If FILE is a Stage 1.5?  */
@@ -1769,67 +1982,13 @@ install_func (char *arg, int flags)
   int is_open = 0;
   /* If LBA is forced?  */
   int is_force_lba = 0;
-  /* Was the last sector full? */
-  int last_length = SECTOR_SIZE;
-  
+
+  *stage2_first_buffer = old_sect + SECTOR_SIZE;
 #ifdef GRUB_UTIL
   /* If the Stage 2 is in a partition mounted by an OS, this will store
      the filename under the OS.  */
   char *stage2_os_file = 0;
 #endif /* GRUB_UTIL */
-  
-  auto void disk_read_savesect_func (int sector, int offset, int length);
-  auto void disk_read_blocklist_func (int sector, int offset, int length);
-  
-  /* Save the first sector of Stage2 in STAGE2_SECT.  */
-  auto void disk_read_savesect_func (int sector, int offset, int length)
-    {
-      if (debug)
-	printf ("[%d]", sector);
-
-      /* ReiserFS has files which sometimes contain data not aligned
-         on sector boundaries.  Returning an error is better than
-         silently failing. */
-      if (offset != 0 || length != SECTOR_SIZE)
-	errnum = ERR_UNALIGNED;
-
-      saved_sector = sector;
-    }
-
-  /* Write SECTOR to INSTALLLIST, and update INSTALLADDR and
-     INSTALLSECT.  */
-  auto void disk_read_blocklist_func (int sector, int offset, int length)
-    {
-      if (debug)
-	printf("[%d]", sector);
-
-      if (offset != 0 || last_length != SECTOR_SIZE)
-	{
-	  /* We found a non-sector-aligned data block. */
-	  errnum = ERR_UNALIGNED;
-	  return;
-	}
-
-      last_length = length;
-
-      if (*((unsigned long *) (installlist - 4))
-	  + *((unsigned short *) installlist) != sector
-	  || installlist == (int) stage2_first_buffer + SECTOR_SIZE + 4)
-	{
-	  installlist -= 8;
-
-	  if (*((unsigned long *) (installlist - 8)))
-	    errnum = ERR_WONT_FIT;
-	  else
-	    {
-	      *((unsigned short *) (installlist + 2)) = (installaddr >> 4);
-	      *((unsigned long *) (installlist - 4)) = sector;
-	    }
-	}
-
-      *((unsigned short *) installlist) += 1;
-      installaddr += 512;
-    }
 
   /* First, check the GNU-style long option.  */
   while (1)
@@ -1862,10 +2021,10 @@ install_func (char *arg, int flags)
   addr = skip_to (0, file);
 
   /* Get the installation address.  */
-  if (! safe_parse_maxint (&addr, &installaddr))
+  if (! safe_parse_maxint (&addr, installaddr))
     {
       /* ADDR is not specified.  */
-      installaddr = 0;
+      *installaddr = 0;
       ptr = addr;
       errnum = 0;
     }
@@ -1961,17 +2120,17 @@ install_func (char *arg, int flags)
       = 0x9090;
   
   /* Read the first sector of Stage 2.  */
-  disk_read_hook = disk_read_savesect_func;
-  if (grub_read (stage2_first_buffer, SECTOR_SIZE) != SECTOR_SIZE)
+  disk_read_hook = install_savesect_helper;
+  if (grub_read (*stage2_first_buffer, SECTOR_SIZE) != SECTOR_SIZE)
     goto fail;
 
-  stage2_first_sector = saved_sector;
+  stage2_first_sector = *saved_sector;
   
   /* Read the second sector of Stage 2.  */
   if (grub_read (stage2_second_buffer, SECTOR_SIZE) != SECTOR_SIZE)
     goto fail;
 
-  stage2_second_sector = saved_sector;
+  stage2_second_sector = *saved_sector;
   
   /* Check for the version of Stage 2.  */
   if (*((short *) (stage2_second_buffer + STAGE2_VER_MAJ_OFFS))
@@ -1987,27 +2146,27 @@ install_func (char *arg, int flags)
 
   /* If INSTALLADDR is not specified explicitly in the command-line,
      determine it by the Stage 2 id.  */
-  if (! installaddr)
+  if (! *installaddr)
     {
       if (! is_stage1_5)
 	/* Stage 2.  */
-	installaddr = 0x8000;
+	*installaddr = 0x8000;
       else
 	/* Stage 1.5.  */
-	installaddr = 0x2000;
+	*installaddr = 0x2000;
     }
 
   *((unsigned long *) (stage1_buffer + STAGE1_STAGE2_SECTOR))
     = stage2_first_sector;
   *((unsigned short *) (stage1_buffer + STAGE1_STAGE2_ADDRESS))
-    = installaddr;
+    = *installaddr;
   *((unsigned short *) (stage1_buffer + STAGE1_STAGE2_SEGMENT))
-    = installaddr >> 4;
+    = *installaddr >> 4;
 
-  i = (int) stage2_first_buffer + SECTOR_SIZE - 4;
+  i = (int) *stage2_first_buffer + SECTOR_SIZE - 4;
   while (*((unsigned long *) i))
     {
-      if (i < (int) stage2_first_buffer
+      if (i < (int) *stage2_first_buffer
 	  || (*((int *) (i - 4)) & 0x80000000)
 	  || *((unsigned short *) i) >= 0xA00
 	  || *((short *) (i + 2)) == 0)
@@ -2021,13 +2180,13 @@ install_func (char *arg, int flags)
       i -= 8;
     }
 
-  installlist = (int) stage2_first_buffer + SECTOR_SIZE + 4;
-  installaddr += SECTOR_SIZE;
+  *installlist = (int) *stage2_first_buffer + SECTOR_SIZE + 4;
+  *installaddr += SECTOR_SIZE;
   
   /* Read the whole of Stage2 except for the first sector.  */
   grub_seek (SECTOR_SIZE);
 
-  disk_read_hook = disk_read_blocklist_func;
+  disk_read_hook = install_blocklist_helper;
   if (! grub_read (dummy, -1))
     goto fail;
   
@@ -2110,7 +2269,7 @@ install_func (char *arg, int flags)
 	  /* Skip the first sector.  */
 	  grub_seek (SECTOR_SIZE);
 	  
-	  disk_read_hook = disk_read_savesect_func;
+	  disk_read_hook = install_savesect_helper;
 	  if (grub_read (stage2_buffer, SECTOR_SIZE) != SECTOR_SIZE)
 	    goto fail;
 	  
@@ -2180,7 +2339,7 @@ install_func (char *arg, int flags)
 	  else
 #endif /* GRUB_UTIL */
 	    {
-	      if (! devwrite (saved_sector - part_start, 1, stage2_buffer))
+	      if (! devwrite (*saved_sector - part_start, 1, stage2_buffer))
 		goto fail;
 	    }
 	}
@@ -2202,7 +2361,7 @@ install_func (char *arg, int flags)
 	  goto fail;
 	}
 
-      if (fwrite (stage2_first_buffer, 1, SECTOR_SIZE, fp) != SECTOR_SIZE)
+      if (fwrite (*stage2_first_buffer, 1, SECTOR_SIZE, fp) != SECTOR_SIZE)
 	{
 	  fclose (fp);
 	  errnum = ERR_WRITE;
@@ -2229,7 +2388,7 @@ install_func (char *arg, int flags)
 	goto fail;
 
       if (! devwrite (stage2_first_sector - src_part_start, 1,
-		      stage2_first_buffer))
+		      *stage2_first_buffer))
 	goto fail;
 
       if (! devwrite (stage2_second_sector - src_part_start, 1,
@@ -2280,7 +2439,6 @@ static struct builtin builtin_install =
   " 2 via your OS's filesystem instead of the raw device."
 };
 
-
 /* ioprobe */
 static int
 ioprobe_func (char *arg, int flags)
@@ -2323,7 +2481,6 @@ static struct builtin builtin_ioprobe =
   "Probe I/O ports used for the drive DRIVE."
 };
 
-
 /* kernel */
 static int
 kernel_func (char *arg, int flags)
@@ -2412,7 +2569,6 @@ static struct builtin builtin_kernel =
   " Linux's mem option automatically."
 };
 
-
 /* lock */
 static int
 lock_func (char *arg, int flags)
@@ -2435,7 +2591,6 @@ static struct builtin builtin_lock =
   "Break a command execution unless the user is authenticated."
 };
   
-
 /* makeactive */
 static int
 makeactive_func (char *arg, int flags)
@@ -2456,7 +2611,6 @@ static struct builtin builtin_makeactive =
   " This command is limited to _primary_ PC partitions on a hard disk."
 };
 
-
 /* map */
 /* Map FROM_DRIVE to TO_DRIVE.  */
 static int
@@ -2520,7 +2674,6 @@ static struct builtin builtin_map =
   " OS resides at a non-first drive."
 };
 
-
 #ifdef USE_MD5_PASSWORDS
 /* md5crypt */
 static int
@@ -2579,7 +2732,6 @@ static struct builtin builtin_md5crypt =
 };
 #endif /* USE_MD5_PASSWORDS */
 
-
 /* module */
 static int
 module_func (char *arg, int flags)
@@ -2627,7 +2779,6 @@ static struct builtin builtin_module =
   " the `kernel' command."
 };
 
-
 /* modulenounzip */
 static int
 modulenounzip_func (char *arg, int flags)
@@ -2657,7 +2808,6 @@ static struct builtin builtin_modulenounzip =
   " disabled."
 };
 
-
 /* pager [on|off] */
 static int
 pager_func (char *arg, int flags)
@@ -2689,7 +2839,6 @@ static struct builtin builtin_pager =
   " is `on', turn on the mode. If FLAG is `off', turn off the mode."
 };
 
-
 /* partnew PART TYPE START LEN */
 static int
 partnew_func (char *arg, int flags)
@@ -2808,15 +2957,14 @@ static struct builtin builtin_partnew =
   " length LEN, with the type TYPE. START and LEN are in sector units."
 };
 
-
 /* parttype PART TYPE */
 static int
 parttype_func (char *arg, int flags)
 {
   int new_type;
   unsigned long part = 0xFFFFFF;
-  unsigned long start, len, offset, ext_offset;
-  int entry, type;
+  unsigned long start, len, offset, ext_offset, gpt_offset;
+  int entry, type, gpt_count, gpt_size;
   char mbr[512];
 
   /* Get the drive and the partition.  */
@@ -2853,8 +3001,15 @@ parttype_func (char *arg, int flags)
   /* Look for the partition.  */
   while (next_partition (current_drive, 0xFFFFFF, &part, &type,
 			 &start, &len, &offset, &entry,
-			 &ext_offset, mbr))
+			 &ext_offset, &gpt_offset, &gpt_count, &gpt_size, mbr))
     {
+	  /* The partition may not be a GPT partition.  */
+	  if (gpt_offset != 0)
+	    {
+		errnum = ERR_BAD_ARGUMENT;
+		return 1;
+	    }
+
       if (part == current_partition)
 	{
 	  /* Found.  */
@@ -2885,7 +3040,6 @@ static struct builtin builtin_parttype =
   "Change the type of the partition PART to TYPE."
 };
 
-
 /* password */
 static int
 password_func (char *arg, int flags)
@@ -2959,7 +3113,6 @@ static struct builtin builtin_password =
   " md5crypt."
 };
 
-
 /* pause */
 static int
 pause_func (char *arg, int flags)
@@ -2982,7 +3135,6 @@ static struct builtin builtin_pause =
   "Print MESSAGE, then wait until a key is pressed."
 };
 
-
 #ifdef GRUB_UTIL
 /* quit */
 static int
@@ -3004,7 +3156,6 @@ static struct builtin builtin_quit =
 };
 #endif /* GRUB_UTIL */
 
-
 #ifdef SUPPORT_NETBOOT
 /* rarp */
 static int
@@ -3033,7 +3184,6 @@ static struct builtin builtin_rarp =
 };
 #endif /* SUPPORT_NETBOOT */
 
-
 static int
 read_func (char *arg, int flags)
 {
@@ -3057,7 +3207,6 @@ static struct builtin builtin_read =
   " display it in hex format."
 };
 
-
 /* reboot */
 static int
 reboot_func (char *arg, int flags)
@@ -3077,7 +3226,6 @@ static struct builtin builtin_reboot =
   "Reboot your system."
 };
 
-
 /* Print the root device information.  */
 static void
 print_root_device (void)
@@ -3195,7 +3343,6 @@ static struct builtin builtin_root =
   " FreeBSD root partition is on the SCSI disk, then use a `1' for HDBIAS."
 };
 
-
 /* rootnoverify */
 static int
 rootnoverify_func (char *arg, int flags)
@@ -3216,7 +3363,6 @@ static struct builtin builtin_rootnoverify =
   " derived from attempting the mount will NOT work correctly."
 };
 
-
 /* savedefault */
 static int
 savedefault_func (char *arg, int flags)
@@ -3374,7 +3520,6 @@ static struct builtin builtin_savedefault =
   " `fallback' is used, next fallback entry is saved."
 };
 
-
 #ifdef SUPPORT_SERIAL
 /* serial */
 static int
@@ -3527,7 +3672,6 @@ static struct builtin builtin_serial =
 };
 #endif /* SUPPORT_SERIAL */
 
-
 /* setkey */
 struct keysym
 {
@@ -3774,7 +3918,6 @@ static struct builtin builtin_setkey =
   " mappings."
 };
 
-
 /* setup */
 static int
 setup_func (char *arg, int flags)
@@ -3830,15 +3973,15 @@ setup_func (char *arg, int flags)
 	{
 	  char tmp[16];
 	  grub_sprintf (tmp, ",%d", (partition >> 16) & 0xFF);
-	  grub_strncat (device, tmp, 256);
+	  grub_strncat (device, tmp, sizeof (device));
 	}
       if ((partition & 0x00FF00) != 0x00FF00)
 	{
 	  char tmp[16];
 	  grub_sprintf (tmp, ",%c", 'a' + ((partition >> 8) & 0xFF));
-	  grub_strncat (device, tmp, 256);
+	  grub_strncat (device, tmp, sizeof (device));
 	}
-      grub_strncat (device, ")", 256);
+      grub_strncat (device, ")", sizeof (device));
     }
   
   int embed_stage1_5 (char *stage1_5, int drive, int partition)
@@ -4084,8 +4227,7 @@ static struct builtin builtin_setup =
   " to tell GRUB the file name under your OS."
 };
 
-
-#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES)
+#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES) || defined(SUPPORT_GRAPHICS)
 /* terminal */
 static int
 terminal_func (char *arg, int flags)
@@ -4244,17 +4386,21 @@ terminal_func (char *arg, int flags)
  end:
   current_term = term_table + default_term;
   current_term->flags = term_flags;
-  
+
   if (lines)
     max_lines = lines;
   else
-    /* 24 would be a good default value.  */
-    max_lines = 24;
-  
+    max_lines = current_term->max_lines;
+
   /* If the interface is currently the command-line,
      restart it to repaint the screen.  */
-  if (current_term != prev_term && (flags & BUILTIN_CMDLINE))
+  if ((current_term != prev_term) && (flags & BUILTIN_CMDLINE)){
+    if (prev_term->shutdown)
+      prev_term->shutdown();
+    if (current_term->startup)
+      current_term->startup();
     grub_longjmp (restart_cmdline_env, 0);
+  }
   
   return 0;
 }
@@ -4264,7 +4410,7 @@ static struct builtin builtin_terminal =
   "terminal",
   terminal_func,
   BUILTIN_MENU | BUILTIN_CMDLINE | BUILTIN_HELP_LIST,
-  "terminal [--dumb] [--no-echo] [--no-edit] [--timeout=SECS] [--lines=LINES] [--silent] [console] [serial] [hercules]",
+  "terminal [--dumb] [--no-echo] [--no-edit] [--timeout=SECS] [--lines=LINES] [--silent] [console] [serial] [hercules] [graphics]",
   "Select a terminal. When multiple terminals are specified, wait until"
   " you push any key to continue. If both console and serial are specified,"
   " the terminal to which you input a key first will be selected. If no"
@@ -4276,9 +4422,8 @@ static struct builtin builtin_terminal =
   " seconds. The option --lines specifies the maximum number of lines."
   " The option --silent is used to suppress messages."
 };
-#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES */
+#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES || SUPPORT_GRAPHICS */
 
-
 #ifdef SUPPORT_SERIAL
 static int
 terminfo_func (char *arg, int flags)
@@ -4374,7 +4519,6 @@ static struct builtin builtin_terminfo =
 };
 #endif /* SUPPORT_SERIAL */
 	  
-
 /* testload */
 static int
 testload_func (char *arg, int flags)
@@ -4462,7 +4606,6 @@ static struct builtin builtin_testload =
   " step is to try loading a kernel."
 };
 
-
 /* testvbe MODE */
 static int
 testvbe_func (char *arg, int flags)
@@ -4567,7 +4710,6 @@ static struct builtin builtin_testvbe =
   "Test the VBE mode MODE. Hit any key to return."
 };
 
-
 #ifdef SUPPORT_NETBOOT
 /* tftpserver */
 static int
@@ -4593,7 +4735,6 @@ static struct builtin builtin_tftpserver =
 };
 #endif /* SUPPORT_NETBOOT */
 
-
 /* timeout */
 static int
 timeout_func (char *arg, int flags)
@@ -4616,7 +4757,6 @@ static struct builtin builtin_timeout =
 #endif
 };
 
-
 /* title */
 static int
 title_func (char *arg, int flags)
@@ -4637,7 +4777,6 @@ static struct builtin builtin_title =
 #endif
 };
 
-
 /* unhide */
 static int
 unhide_func (char *arg, int flags)
@@ -4661,7 +4800,6 @@ static struct builtin builtin_unhide =
   " partition type code."
 };
 
-
 /* uppermem */
 static int
 uppermem_func (char *arg, int flags)
@@ -4683,7 +4821,6 @@ static struct builtin builtin_uppermem =
   " installed.  Any system address range maps are discarded."
 };
 
-
 /* vbeprobe */
 static int
 vbeprobe_func (char *arg, int flags)
@@ -4791,10 +4928,12 @@ static struct builtin builtin_vbeprobe =
   " the information about only the mode."
 };
   
-
 /* The table of builtin commands. Sorted in dictionary order.  */
 struct builtin *builtin_table[] =
 {
+#ifdef SUPPORT_GRAPHICS
+  &builtin_background,
+#endif
   &builtin_blocklist,
   &builtin_boot,
 #ifdef SUPPORT_NETBOOT
@@ -4802,6 +4941,7 @@ struct builtin *builtin_table[] =
 #endif /* SUPPORT_NETBOOT */
   &builtin_cat,
   &builtin_chainloader,
+  &builtin_clear,
   &builtin_cmp,
   &builtin_color,
   &builtin_configfile,
@@ -4821,6 +4961,9 @@ struct builtin *builtin_table[] =
   &builtin_embed,
   &builtin_fallback,
   &builtin_find,
+#ifdef SUPPORT_GRAPHICS
+  &builtin_foreground,
+#endif
   &builtin_fstest,
   &builtin_geometry,
   &builtin_halt,
@@ -4864,9 +5007,12 @@ struct builtin *builtin_table[] =
 #endif /* SUPPORT_SERIAL */
   &builtin_setkey,
   &builtin_setup,
-#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES)
+#ifdef SUPPORT_GRAPHICS
+  &builtin_splashimage,
+#endif /* SUPPORT_GRAPHICS */
+#if defined(SUPPORT_SERIAL) || defined(SUPPORT_HERCULES) || defined(SUPPORT_GRAPHICS)
   &builtin_terminal,
-#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES */
+#endif /* SUPPORT_SERIAL || SUPPORT_HERCULES || SUPPORT_GRAPHICS */
 #ifdef SUPPORT_SERIAL
   &builtin_terminfo,
 #endif /* SUPPORT_SERIAL */

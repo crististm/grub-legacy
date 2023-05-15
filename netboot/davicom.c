@@ -36,7 +36,7 @@
 			register(CR6)
 */
 
-
+
 /*********************************************************************/
 /* Declarations                                                      */
 /*********************************************************************/
@@ -155,7 +155,7 @@ static unsigned char rxb[NRXD * BUFLEN] __attribute__ ((aligned(4)));
 static int rxd_tail;
 static int TxPtr;
 
-
+
 /*********************************************************************/
 /* Function Prototypes                                               */
 /*********************************************************************/
@@ -180,7 +180,7 @@ static void phy_write_1bit(u32, u32);
 static int phy_read_1bit(u32);
 static void davicom_media_chk(struct nic *);
 
-
+
 /*********************************************************************/
 /* Utility Routines                                                  */
 /*********************************************************************/
@@ -211,7 +211,7 @@ static void davicom_wait(unsigned int nticks)
     /* wait */ ;
 }
 
-
+
 /*********************************************************************/
 /* For DAVICOM phyxcer register by MII interface		     */
 /*********************************************************************/
@@ -391,7 +391,7 @@ static void davicom_media_chk(struct nic * nic)
     HPNA_process();
 }
 
-
+
 /*********************************************************************/
 /* EEPROM Reading Code                                               */
 /*********************************************************************/
@@ -433,7 +433,7 @@ static int read_eeprom(unsigned long ioaddr, int location, int addr_len)
   outl(EE_ENB & ~EE_CS, ee_addr);
   return retval;
 }
-
+
 /*********************************************************************/
 /* davicom_init_chain - setup the tx and rx descriptors                */
 /* Sten 10/9							     */
@@ -481,7 +481,7 @@ static void davicom_init_chain(struct nic *nic)
   rxd_tail = 0;
 }
 
-
+
 /*********************************************************************/
 /* davicom_reset - Reset adapter                                         */
 /*********************************************************************/
@@ -546,7 +546,7 @@ static void davicom_reset(struct nic *nic)
   outl(0, ioaddr + CSR2);
 }
 
-
+
 /*********************************************************************/
 /* eth_transmit - Transmit a frame                                   */
 /*********************************************************************/
@@ -587,7 +587,7 @@ static void davicom_transmit(struct nic *nic, const char *d, unsigned int t,
   TxPtr = (++TxPtr >= NTXD) ? 0:TxPtr;	/* Sten 10/9 */
 
 }
-
+
 /*********************************************************************/
 /* eth_poll - Wait for a frame                                       */
 /*********************************************************************/
@@ -623,7 +623,7 @@ static int davicom_poll(struct nic *nic)
 
   return 1;
 }
-
+
 /*********************************************************************/
 /* eth_disable - Disable the interface                               */
 /*********************************************************************/
@@ -640,7 +640,7 @@ static void davicom_disable(struct nic *nic)
   /* Clear the missed-packet counter. */
   (volatile unsigned long)inl(ioaddr + CSR8);
 }
-
+
 /*********************************************************************/
 /* eth_probe - Look for an adapter                                   */
 /*********************************************************************/

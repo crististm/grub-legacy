@@ -1,7 +1,7 @@
 /* boot.c - load and bootstrap a kernel */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 1999,2000,2001,2002,2003,2004  Free Software Foundation, Inc.
+ *  Copyright (C) 1999,2000,2001,2002,2003,2004,2005  Free Software Foundation, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,7 +96,7 @@ load_image (char *kernel, char *arg, kernel_t suggested_type,
   lh = (struct linux_kernel_header *) buffer;
   
   /* ELF loading supported if multiboot, FreeBSD and NetBSD.  */
-  if ((type == KERNEL_TYPE_MULTIBOOT
+  if (((type == KERNEL_TYPE_MULTIBOOT && ! (flags & MULTIBOOT_AOUT_KLUDGE))
        || pu.elf->e_ident[EI_OSABI] == ELFOSABI_FREEBSD
        || grub_strcmp (pu.elf->e_ident + EI_BRAND, "FreeBSD") == 0
        || suggested_type == KERNEL_TYPE_NETBSD)
@@ -241,7 +241,7 @@ load_image (char *kernel, char *arg, kernel_t suggested_type,
 	    }
 
 	  if (lh->version >= 0x0202)
-	    lh->cmd_line_ptr = linux_data_real_addr + LINUX_CL_OFFSET;
+	    lh->cmd_line_ptr = linux_data_real_addr + LINUX_CL_0202_PRM_OFFSET;
 	  else
 	    {
 	      lh->cl_magic = LINUX_CL_MAGIC;
@@ -407,6 +407,15 @@ load_image (char *kernel, char *arg, kernel_t suggested_type,
 	    while (dest < linux_data_tmp_addr + LINUX_CL_END_OFFSET && *src)
 	      *(dest++) = *(src++);
 	
+	    {
+	    char *src = skip_to (0, arg);
+	    char *dest = linux_data_tmp_addr + LINUX_CL_0202_PRM_OFFSET;
+
+	    while (dest < linux_data_tmp_addr + LINUX_CL_0202_PRM_END_OFFSET && *src)
+	      *(dest++) = *(src++);
+	    *dest = 0;
+	    }
+
 	    /* Old Linux kernels have problems determining the amount of
 	       the available memory.  To work around this problem, we add
 	       the "mem" option to the kernel command line.  This has its
@@ -824,8 +833,11 @@ load_initrd (char *initrd)
     moveto = (mbi.mem_upper + 0x400) << 10;
   
   moveto = (moveto - len) & 0xfffff000;
-  max_addr = (lh->header == LINUX_MAGIC_SIGNATURE && lh->version >= 0x0203
-	      ? lh->initrd_addr_max : LINUX_INITRD_MAX_ADDRESS);
+  max_addr = LINUX_INITRD_MAX_ADDRESS;
+  if (lh->header == LINUX_MAGIC_SIGNATURE &&
+      lh->version >= 0x0203 &&
+      lh->initrd_addr_max < max_addr)
+    max_addr = lh->initrd_addr_max;
   if (moveto + len >= max_addr)
     moveto = (max_addr - len) & 0xfffff000;
   

@@ -96,24 +96,27 @@ convert () {
     # Break the device name into the disk part and the partition part.
     case "$host_os" in
     linux*)
-	tmp_disk=`echo "$1" | sed -e 's%\([sh]d[a-z]\)[0-9]*$%\1%' \
+	tmp_disk=`echo "$1" | sed -e 's%\([shv]d[a-z]\)[0-9]*$%\1%' \
 				  -e 's%\(d[0-9]*\)p[0-9]*$%\1%' \
 				  -e 's%\(fd[0-9]*\)$%\1%' \
 				  -e 's%/part[0-9]*$%/disc%' \
-				  -e 's%\(c[0-7]d[0-9]*\).*$%\1%'`
-	tmp_part=`echo "$1" | sed -e 's%.*/[sh]d[a-z]\([0-9]*\)$%\1%' \
+				  -e 's%\(c[0-7]d[0-9]*\).*$%\1%' \
+				  -e 's%\(e[0-9]\.[0-9]*\).*$%\1%'`
+	tmp_part=`echo "$1" | sed -e 's%.*/[shv]d[a-z]\([0-9]*\)$%\1%' \
 				  -e 's%.*d[0-9]*p%%' \
 				  -e 's%.*/fd[0-9]*$%%' \
 				  -e 's%.*/floppy/[0-9]*$%%' \
 				  -e 's%.*/\(disc\|part\([0-9]*\)\)$%\2%' \
-				  -e 's%.*c[0-7]d[0-9]*p%%'`
+				  -e 's%.*c[0-7]d[0-9]*p*%%' \
+				  -e 's%.*e[0-9]\.[0-9]*p%%' \
+				  -e 's%.*e[0-9]\.[0-9]*\$%%'`
 	;;
     gnu*)
 	tmp_disk=`echo "$1" | sed 's%\([sh]d[0-9]*\).*%\1%'`
 	tmp_part=`echo "$1" | sed "s%$tmp_disk%%"` ;;
     freebsd* | kfreebsd*-gnu)
-	tmp_disk=`echo "$1" | sed 's%r\{0,1\}\([saw]d[0-9]*\).*$%r\1%' \
-			    | sed 's%r\{0,1\}\(da[0-9]*\).*$%r\1%'`
+	tmp_disk=`echo "$1" | sed 's%r\{0,1\}\([saw]d[0-9]*\).*$%\1%' \
+			    | sed 's%r\{0,1\}\(da[0-9]*\).*$%\1%'`
 	tmp_part=`echo "$1" \
 	    | sed "s%.*/r\{0,1\}[saw]d[0-9]\(s[0-9]*[a-h]\)%\1%" \
        	    | sed "s%.*/r\{0,1\}da[0-9]\(s[0-9]*[a-h]\)%\1%"`
@@ -131,7 +134,7 @@ convert () {
 
     # Get the drive name.
     tmp_drive=`grep -v '^#' $device_map | grep "$tmp_disk *$" \
-	| sed 's%.*\(([hf]d[0-9][a-g0-9,]*)\).*%\1%'`
+	| sed 's%.*\(([hf]d[0-9][a-z0-9,]*)\).*%\1%'`
 
     # If not found, print an error message and exit.
     if test "x$tmp_drive" = x; then
@@ -148,13 +151,13 @@ convert () {
 	gnu*)
 	    if echo $tmp_part | grep "^s" >/dev/null; then
 		tmp_pc_slice=`echo $tmp_part \
-		    | sed "s%s\([0-9]*\)[a-g]*$%\1%"`
+		    | sed "s%s\([0-9]*\)[a-z]*$%\1%"`
 		tmp_drive=`echo "$tmp_drive" \
 		    | sed "s%)%,\`expr "$tmp_pc_slice" - 1\`)%"`
 	    fi
-	    if echo $tmp_part | grep "[a-g]$" >/dev/null; then
+	    if echo $tmp_part | grep "[a-z]$" >/dev/null; then
 		tmp_bsd_partition=`echo "$tmp_part" \
-		    | sed "s%[^a-g]*\([a-g]\)$%\1%"`
+		    | sed "s%[^a-z]*\([a-z]\)$%\1%"`
 		tmp_drive=`echo "$tmp_drive" \
 		    | sed "s%)%,$tmp_bsd_partition)%"`
 	    fi
@@ -336,6 +339,10 @@ else
     # Create a safe temporary file.
     test -n "$mklog" && log_file=`$mklog`
 
+    # Before all invocations of the grub shell, call sync to make sure
+    # the raw device is in sync with any bufferring in filesystems.
+    sync
+
     $grub_shell --batch $no_floppy --device-map=$device_map <<EOF >$log_file
 quit
 EOF
@@ -449,6 +456,10 @@ rm -f $log_file
 
 # Create a safe temporary file.
 test -n "$mklog" && log_file=`$mklog`
+
+# Before all invocations of the grub shell, call sync to make sure
+# the raw device is in sync with any bufferring in filesystems.
+sync
 
 # Now perform the installation.
 $grub_shell --batch $no_floppy --device-map=$device_map <<EOF >$log_file

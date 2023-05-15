@@ -1,4 +1,4 @@
-/* tparm.h - parameter formatting of terminfo */
+/* graphics.h - graphics console interface */
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 2002  Free Software Foundation, Inc.
@@ -18,11 +18,28 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef GRUB_TPARM_HEADER
-#define GRUB_TPARM_HEADER	1
+#ifndef GRAPHICS_H
+#define GRAPHICS_H
 
+/* magic constant */
+#define VIDEOMEM 0xA0000
 
-/* Function prototypes.  */
-char *grub_tparm (const char *string, ...);
+/* function prototypes */
+char *graphics_get_splash(void);
 
-#endif /* ! GRUB_TERMCAP_HEADER */
+int read_image(char *s);
+void graphics_cursor(int set);
+
+/* function prototypes for asm functions */
+void * graphics_get_font();
+void graphics_set_palette(int idx, int red, int green, int blue);
+void set_int1c_handler();
+void unset_int1c_handler();
+
+/* Only to check for safe opening before we start */
+int grub_file_exists(char *s);
+
+extern short cursorX, cursorY;
+extern char cursorBuf[16];
+
+#endif /* GRAPHICS_H */

@@ -98,7 +98,7 @@
      and thinguin mailing lists.
 */
 
-
+
 /*********************************************************************/
 /* Declarations                                                      */
 /*********************************************************************/
@@ -471,7 +471,7 @@ static struct fixups {
 static const char * block_name[] = {"21140 non-MII", "21140 MII PHY",
                                     "21142 Serial PHY", "21142 MII PHY", "21143 SYM PHY", "21143 reset method"};
 
-
+
 /*********************************************************************/
 /* Function Prototypes                                               */
 /*********************************************************************/
@@ -504,7 +504,7 @@ static void whereami(const char *str);
 static void tulip_more(void);
 #endif
 
-
+
 /*********************************************************************/
 /* Utility Routines                                                  */
 /*********************************************************************/
@@ -535,7 +535,7 @@ static void tulip_wait(unsigned int nticks)
         /* wait */ ;
 }
 
-
+
 /*********************************************************************/
 /* Media Descriptor Code                                             */
 /*********************************************************************/
@@ -682,7 +682,7 @@ void mdio_write(struct nic *nic, int phy_id, int location, int value)
     }
 }
 
-
+
 /*********************************************************************/
 /* EEPROM Reading Code                                               */
 /*********************************************************************/
@@ -727,7 +727,7 @@ static int read_eeprom(unsigned long ioaddr, int location, int addr_len)
     return retval;
 }
 
-
+
 /*********************************************************************/
 /* EEPROM Parsing Code                                               */
 /*********************************************************************/
@@ -895,7 +895,7 @@ static void parse_eeprom(struct nic *nic)
     }
 }
 
-
+
 /*********************************************************************/
 /* tulip_init_ring - setup the tx and rx descriptors                */
 /*********************************************************************/
@@ -935,7 +935,7 @@ static void tulip_init_ring(struct nic *nic)
     /* Mark the last entry as wrapping the ring, though this should never happen */
     tx_ring[1].length  = cpu_to_le32(DESC_RING_WRAP | BUFLEN);
 }
-
+
 /*********************************************************************/
 /* eth_reset - Reset adapter                                         */
 /*********************************************************************/
@@ -1053,7 +1053,7 @@ static void tulip_reset(struct nic *nic)
     outl(tp->csr6 | 0x00002002, ioaddr + CSR6);
 }
 
-
+
 /*********************************************************************/
 /* eth_transmit - Transmit a frame                                   */
 /*********************************************************************/
@@ -1113,7 +1113,7 @@ static void tulip_transmit(struct nic *nic, const char *d, unsigned int t,
     /* Disable Tx */
     outl(csr6 & ~0x00002000, ioaddr + CSR6);
 }
-
+
 /*********************************************************************/
 /* eth_poll - Wait for a frame                                       */
 /*********************************************************************/
@@ -1151,7 +1151,7 @@ static int tulip_poll(struct nic *nic)
 
     return 1;
 }
-
+
 /*********************************************************************/
 /* eth_disable - Disable the interface                               */
 /*********************************************************************/
@@ -1171,7 +1171,7 @@ static void tulip_disable(struct nic *nic)
     /* Clear the missed-packet counter. */
     (volatile unsigned long)inl(ioaddr + CSR8);
 }
-
+
 /*********************************************************************/
 /* eth_probe - Look for an adapter                                   */
 /*********************************************************************/

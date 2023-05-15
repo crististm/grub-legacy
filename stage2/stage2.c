@@ -233,6 +233,7 @@ run_menu (char *menu_entries, char *config_entries, int num_entries,
 {
   int c, time1, time2 = -1, first_entry = 0;
   char *cur_entry = 0;
+  struct term_entry *prev_term = NULL;
 
   /*
    *  Main loop for menu UI.
@@ -651,7 +652,10 @@ restart:
 		  *(new_heap++) = 0;
 
 		  if (config_entries)
-		    run_menu (heap, NULL, new_num_entries, new_heap, 0);
+		    {
+		      current_entryno = first_entry + entryno;
+		      run_menu (heap, NULL, new_num_entries, new_heap, 0);
+		    }
 		  else
 		    {
 		      cls ();
@@ -714,6 +718,15 @@ restart:
   
   cls ();
   setcursor (1);
+  /* if our terminal needed initialization, we should shut it down
+   * before booting the kernel, but we want to save what it was so
+   * we can come back if needed */
+  prev_term = current_term;
+  if (current_term->shutdown)
+    {
+      (*current_term->shutdown)();
+      current_term = term_table; /* assumption: console is first */
+    }
   
   while (1)
     {
@@ -727,7 +740,8 @@ restart:
 	cur_entry = get_entry (config_entries, first_entry + entryno, 1);
 
       /* Set CURRENT_ENTRYNO for the command "savedefault".  */
-      current_entryno = first_entry + entryno;
+      if (config_entries)
+	current_entryno = first_entry + entryno;
       
       if (run_script (cur_entry, heap))
 	{
@@ -748,6 +762,13 @@ restart:
 	break;
     }
 
+  /* if we get back here, we should go back to what our term was before */
+  current_term = prev_term;
+  if (current_term->startup)
+      /* if our terminal fails to initialize, fall back to console since
+       * it should always work */
+      if ((*current_term->startup)() == 0)
+          current_term = term_table; /* we know that console is first */
   show_menu = 1;
   goto restart;
 }
@@ -1049,6 +1070,10 @@ cmain (void)
 	    }
 	  while (is_preset);
 	}
+
+      /* go ahead and make sure the terminal is setup */
+      if (current_term->startup)
+        (*current_term->startup)();
 
       if (! num_entries)
 	{

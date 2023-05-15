@@ -34,7 +34,7 @@ static int serial_y;
 
 static int keep_track = 1;
 
-
+
 /* Hardware-dependent definitions.  */
 
 #ifndef GRUB_UTIL
@@ -189,7 +189,7 @@ serial_hw_init (unsigned short port, unsigned int speed,
 }
 #endif /* ! GRUB_UTIL */
 
-
+
 /* Generic definitions.  */
 
 static void

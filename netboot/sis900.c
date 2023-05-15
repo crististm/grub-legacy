@@ -35,7 +35,7 @@
      Testet with SIS730S chipset + ICS1893
 */
 
-
+
 /* Includes */
 
 #include "etherboot.h"
@@ -106,7 +106,7 @@ static struct mii_phy {
     u16 status;
 } mii;
 
-
+
 // PCI to ISA bridge for SIS640E access
 static struct pci_device   pci_isa_bridge_list[] = {
 	{ 0x1039, 0x0008,
@@ -201,7 +201,7 @@ static int sis630e_get_mac_addr(struct pci_device * pci_dev, struct nic *nic)
 
 	return 1;
 }
-
+
 /* 
  * Function: sis900_probe
  *
@@ -312,7 +312,7 @@ struct nic *sis900_probe(struct nic *nic, unsigned short *io_addrs, struct pci_d
     return nic;
 }
 
-
+
 /* 
  * EEPROM Routines:  These functions read and write to EEPROM for 
  *    retrieving the MAC address and other configuration information about 
@@ -322,7 +322,7 @@ struct nic *sis900_probe(struct nic *nic, unsigned short *io_addrs, struct pci_d
 /* Delay between EEPROM clock transitions. */
 #define eeprom_delay()  inl(ee_addr)
 
-
+
 /* Function: sis900_read_eeprom
  *
  * Description: reads and returns a given location from EEPROM
@@ -378,7 +378,7 @@ static u16 sis900_read_eeprom(int location)
 
 #define sis900_mdio_delay()    inl(mdio_addr)
 
-
+
 /* 
    Read and write the MII management registers using software-generated
    serial MDIO protocol. Note that the command bits and data bits are
@@ -474,7 +474,7 @@ static void sis900_mdio_write(int phy_id, int location, int value)
     return;
 }
 
-
+
 /* Function: sis900_init
  *
  * Description: resets the ethernet controller chip and various
@@ -503,7 +503,7 @@ sis900_init(struct nic *nic)
     outl(RxENA, ioaddr + cr);
 }
 
-
+
 /* 
  * Function: sis900_reset
  *
@@ -533,7 +533,7 @@ sis900_reset(struct nic *nic)
     outl(PESEL, ioaddr + cfg);
 }
 
-
+
 /* Function: sis_init_rxfilter
  *
  * Description: sets receive filter address to our MAC address
@@ -571,7 +571,7 @@ sis900_init_rxfilter(struct nic *nic)
     outl(rfcrSave | RFEN, rfcr + ioaddr);
 }
 
-
+
 /* 
  * Function: sis_init_txd
  *
@@ -596,7 +596,7 @@ sis900_init_txd(struct nic *nic)
                inl(ioaddr + txdp));
 }
 
-
+
 /* Function: sis_init_rxd
  *
  * Description: initializes the Rx descriptor ring
@@ -632,7 +632,7 @@ sis900_init_rxd(struct nic *nic)
 
 }
 
-
+
 /* Function: sis_init_rxd
  *
  * Description: 
@@ -662,7 +662,7 @@ static void sis900_set_rx_mode(struct nic *nic)
     return;
 }
 
-
+
 /* Function: sis900_check_mode
  *
  * Description: checks the state of transmit and receive
@@ -702,7 +702,7 @@ sis900_check_mode (struct nic *nic)
     outl (rx_flags, ioaddr + rxcfg);
 }
 
-
+
 /* Function: sis900_read_mode
  *
  * Description: retrieves and displays speed and duplex
@@ -743,7 +743,7 @@ sis900_read_mode(struct nic *nic, int phy_addr, int *speed, int *duplex)
                "full" : "half");
 }
 
-
+
 /* Function: amd79c901_read_mode
  *
  * Description: retrieves and displays speed and duplex
@@ -796,7 +796,7 @@ amd79c901_read_mode(struct nic *nic, int phy_addr, int *speed, int *duplex)
     }
 }
 
-
+
 /**
  *	ics1893_read_mode: - read media mode for ICS1893 PHY
  *	@net_dev: the net device to read mode for
@@ -901,7 +901,7 @@ sis900_transmit(struct nic  *nic,
                 const char  *p)     /* Packet */
 {
     u32 status, to, nstype;
-    u32 tx_status;
+    volatile u32 tx_status;
     
     /* Stop the transmitter */
     outl(TxDIS, ioaddr + cr);
@@ -940,7 +940,7 @@ sis900_transmit(struct nic  *nic,
 
     to = currticks() + TX_TIMEOUT;
 
-    while ((((volatile u32) tx_status=txd.cmdsts) & OWN) && (currticks() < to))
+    while (((tx_status=txd.cmdsts) & OWN) && (currticks() < to))
         /* wait */ ;
 
     if (currticks() >= to) {
@@ -955,7 +955,7 @@ sis900_transmit(struct nic  *nic,
     outl(0, ioaddr + imr);
 }
 
-
+
 /* Function: sis900_poll
  *
  * Description: checks for a received packet and returns it if found.
@@ -1012,7 +1012,7 @@ sis900_poll(struct nic *nic)
     return retstat;
 }
 
-
+
 /* Function: sis900_disable
  *
  * Description: Turns off interrupts and stops Tx and Rx engines

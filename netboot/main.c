@@ -56,7 +56,8 @@ static int vendorext_isvalid;
 static unsigned long netmask;
 static struct bootpd_t bootp_data;
 static unsigned long xid;
-static unsigned char *end_of_rfc1533 = NULL;
+
+#define	BOOTP_DATA_ADDR	(&bootp_data)
 
 #ifndef	NO_DHCP_SUPPORT
 #endif /* NO_DHCP_SUPPORT */
@@ -83,7 +84,9 @@ static const unsigned char dhcpdiscover[] =
   RFC2132_MAX_SIZE,2,	/* request as much as we can */
   ETH_MAX_MTU / 256, ETH_MAX_MTU % 256,
   RFC2132_PARAM_LIST, 4, RFC1533_NETMASK, RFC1533_GATEWAY,
-  RFC1533_HOSTNAME, RFC1533_EXTENSIONPATH
+  RFC1533_HOSTNAME, RFC1533_EXTENSIONPATH,
+  /* Vendor class identifier */
+  RFC2132_VENDOR_CLASS_ID, 10, 'G', 'R', 'U', 'B', 'C', 'l', 'i', 'e', 'n', 't',
 };
 
 static const unsigned char dhcprequest[] =
@@ -103,6 +106,8 @@ static const unsigned char dhcprequest[] =
   /* Etherboot vendortags */
   RFC1533_VENDOR_MAGIC,
   RFC1533_VENDOR_CONFIGFILE,
+  /* Vendor class identifier */
+  RFC2132_VENDOR_CLASS_ID, 10, 'G', 'R', 'U', 'B', 'C', 'l', 'i', 'e', 'n', 't',
 };
 
 #endif /* ! NO_DHCP_SUPPORT */
@@ -701,7 +706,7 @@ dosum (unsigned short *start, unsigned int len, unsigned short *sum)
      "adcw %%ax,%0\n\t"		/* add carry of previous iteration */
      "loop 1b\n\t"
      "adcw $0,%0"		/* add carry of last iteration */
-     : "=b" (*sum), "=S"(start), "=c"(len)
+     : "=r" (*sum), "=S"(start), "=c"(len)
      : "0"(*sum), "1"(start), "2"(len)
      : "ax", "cc"
      );
@@ -967,7 +972,6 @@ decode_rfc1533 (unsigned char *p, int block, int len, int eof)
   
   if (block == 0)
     {
-      end_of_rfc1533 = NULL;
       vendorext_isvalid = 0;
       
       if (grub_memcmp (p, rfc1533_cookie, 4))
@@ -1021,7 +1025,7 @@ decode_rfc1533 (unsigned char *p, int block, int len, int eof)
 	}
       else if (c == RFC1533_END)
 	{
-	  end_of_rfc1533 = endp = p;
+	  endp = p;
 	  continue;
 	}
       else if (c == RFC1533_NETMASK)

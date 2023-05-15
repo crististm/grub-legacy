@@ -105,13 +105,16 @@ static unsigned long bios32_service(unsigned long service)
 
 	save_flags(flags);
 	__asm__(
+		"pushl %%ebx\n\t" /* save %ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
-		"lcall (%%edi)"
+		"lcall (%%edi)\n\t"
 #else
-		"lcall *(%%edi)"
+		"lcall *(%%edi)\n\t"
 #endif
+		"movl %%ebx, %1\n\t" /* capture what was in %ebx */
+		"popl %%ebx\n\t" /* restore %ebx */
 		: "=a" (return_code),
-		  "=b" (address),
+		  "=r" (address),
 		  "=c" (length),
 		  "=d" (entry)
 		: "0" (service),
@@ -141,18 +144,21 @@ int pcibios_read_config_byte(unsigned int bus,
 
         save_flags(flags);
         __asm__(
+		"pushl %%ebx\n\t" /* save %ebx */
+		"movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
                 "jc 1f\n\t"
-                "xor %%ah, %%ah\n"
+		"popl %%ebx\n\t" /* restore %ebx */
+		"xor %%ah, %%ah\n\t"
                 "1:"
                 : "=c" (*value),
                   "=a" (ret)
                 : "1" (PCIBIOS_READ_CONFIG_BYTE),
-                  "b" (bx),
+                  "r" (bx),
                   "D" ((long) where),
                   "S" (&pci_indirect));
         restore_flags(flags);
@@ -168,18 +174,21 @@ int pcibios_read_config_word(unsigned int bus,
 
         save_flags(flags);
         __asm__(
+		"pushl %%ebx\n\t" /* save %ebx */
+		"movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
                 "jc 1f\n\t"
-                "xor %%ah, %%ah\n"
+		"popl %%ebx\n\t" /* restore %ebx */
+		"xor %%ah, %%ah\n\t"
                 "1:"
                 : "=c" (*value),
                   "=a" (ret)
                 : "1" (PCIBIOS_READ_CONFIG_WORD),
-                  "b" (bx),
+		"r" (bx),
                   "D" ((long) where),
                   "S" (&pci_indirect));
         restore_flags(flags);
@@ -195,18 +204,21 @@ int pcibios_read_config_dword(unsigned int bus,
 
         save_flags(flags);
         __asm__(
+	    "pushl %%ebx\n\t" /* save %ebx */
+	    "movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
                 "jc 1f\n\t"
-                "xor %%ah, %%ah\n"
+	    "popl %%ebx\n\t" /* restore %ebx */
+	    "xor %%ah, %%ah\n\t"
                 "1:"
                 : "=c" (*value),
                   "=a" (ret)
                 : "1" (PCIBIOS_READ_CONFIG_DWORD),
-                  "b" (bx),
+	    "r" (bx),
                   "D" ((long) where),
                   "S" (&pci_indirect));
         restore_flags(flags);
@@ -222,18 +234,21 @@ int pcibios_write_config_byte (unsigned int bus,
 
 	save_flags(flags); cli();
 	__asm__(
+	    "pushl %%ebx\n\t" /* save %ebx */
+	    "movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
 		"jc 1f\n\t"
-		"xor %%ah, %%ah\n"
+	    "popl %%ebx\n\t" /* restore %ebx */
+	    "xor %%ah, %%ah\n\t"
 		"1:"
 		: "=a" (ret)
 		: "0" (PCIBIOS_WRITE_CONFIG_BYTE),
 		  "c" (value),
-		  "b" (bx),
+	    "r" (bx),
 		  "D" ((long) where),
 		  "S" (&pci_indirect));
 	restore_flags(flags);
@@ -249,18 +264,21 @@ int pcibios_write_config_word (unsigned int bus,
 
 	save_flags(flags); cli();
 	__asm__(
+	    "pushl %%ebx\n\t" /* save %ebx */
+	    "movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
 		"jc 1f\n\t"
-		"xor %%ah, %%ah\n"
+	    "popl %%ebx\n\t" /* restore %ebx */
+	    "xor %%ah, %%ah\n\t"
 		"1:"
 		: "=a" (ret)
 		: "0" (PCIBIOS_WRITE_CONFIG_WORD),
 		  "c" (value),
-		  "b" (bx),
+	    "r" (bx),
 		  "D" ((long) where),
 		  "S" (&pci_indirect));
 	restore_flags(flags);
@@ -276,18 +294,21 @@ int pcibios_write_config_dword (unsigned int bus,
 
 	save_flags(flags); cli();
 	__asm__(
+	    "pushl %%ebx\n\t" /* save %ebx */
+	    "movl %3, %%ebx\n\t" /* put the value into ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 		"lcall (%%esi)\n\t"
 #else
 		"lcall *(%%esi)\n\t"
 #endif
 		"jc 1f\n\t"
-		"xor %%ah, %%ah\n"
+	    "popl %%ebx\n\t" /* restore %ebx */
+	    "xor %%ah, %%ah\n\t"
 		"1:"
 		: "=a" (ret)
 		: "0" (PCIBIOS_WRITE_CONFIG_DWORD),
 		  "c" (value),
-		  "b" (bx),
+	    "r" (bx),
 		  "D" ((long) where),
 		  "S" (&pci_indirect));
 	restore_flags(flags);
@@ -308,20 +329,22 @@ static void check_pcibios(void)
 
 		save_flags(flags);
 		__asm__(
+		"pushl %%ebx\n\t" /* save %ebx */
 #ifdef ABSOLUTE_WITHOUT_ASTERISK
 			"lcall (%%edi)\n\t"
 #else
 			"lcall *(%%edi)\n\t"
 #endif
 			"jc 1f\n\t"
-			"xor %%ah, %%ah\n"
+		"xor %%ah, %%ah\n\t"
 			"1:\tshl $8, %%eax\n\t"
-			"movw %%bx, %%ax"
+		"movw %%bx, %%ax\n\t"
+		"popl %%ebx\n\t" /* restore %ebx */
 			: "=d" (signature),
 			  "=a" (pack)
 			: "1" (PCIBIOS_PCI_BIOS_PRESENT),
 			  "D" (&pci_indirect)
-			: "bx", "cx");
+		: "cx");
 		restore_flags(flags);
 
 		present_status = (pack >> 16) & 0xff;

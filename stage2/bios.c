@@ -20,7 +20,7 @@
 
 #include "shared.h"
 
-
+
 /* These are defined in asm.S, and never be used elsewhere, so declare the
    prototypes here.  */
 extern int biosdisk_int13_extensions (int ax, int drive, void *dap);
@@ -39,7 +39,7 @@ extern int get_diskinfo_floppy (int drive,
 				unsigned long *sectors);
 #endif
 
-
+
 /* Read/write NSEC sectors starting from SECTOR in DRIVE disk with GEOMETRY
    from/into SEGMENT segment. If READ is BIOSDISK_READ, then read it,
    else if READ is BIOSDISK_WRITE, then write it. If an geometry error
@@ -47,7 +47,7 @@ extern int get_diskinfo_floppy (int drive,
    return the error number. Otherwise, return 0.  */
 int
 biosdisk (int read, int drive, struct geometry *geometry,
-	  int sector, int nsec, int segment)
+	  unsigned int sector, int nsec, int segment)
 {
   int err;
   
@@ -60,7 +60,18 @@ biosdisk (int read, int drive, struct geometry *geometry,
 	unsigned short blocks;
 	unsigned long buffer;
 	unsigned long long block;
-      } __attribute__ ((packed)) dap;
+
+	/* This structure is passed in the stack. A buggy BIOS could write
+	 * garbage data to the tail of the struct and hang the machine. So
+	 * we need this protection. - Tinybit
+	 */
+	unsigned char dummy[16];
+      } __attribute__ ((packed)) *dap;
+
+      /* Even the above protection is not enough to avoid stupid actions by
+       * buggy BIOSes. So we do it in the 0040:0000 segment. - Tinybit
+       */
+      dap = (struct disk_address_packet *)0x580;
 
       /* XXX: Don't check the geometry by default, because some buggy
 	 BIOSes don't return the number of total sectors correctly,
@@ -72,15 +83,15 @@ biosdisk (int read, int drive, struct geometry *geometry,
 
       /* FIXME: sizeof (DAP) must be 0x10. Should assert that the compiler
 	 can't add any padding.  */
-      dap.length = sizeof (dap);
-      dap.block = sector;
-      dap.blocks = nsec;
-      dap.reserved = 0;
+      dap->length = 0x10;
+      dap->block = sector;
+      dap->blocks = nsec;
+      dap->reserved = 0;
       /* This is undocumented part. The address is formated in
 	 SEGMENT:ADDRESS.  */
-      dap.buffer = segment << 16;
+      dap->buffer = segment << 16;
       
-      err = biosdisk_int13_extensions ((read + 0x42) << 8, drive, &dap);
+      err = biosdisk_int13_extensions ((read + 0x42) << 8, drive, dap);
 
 /* #undef NO_INT13_FALLBACK */
 #ifndef NO_INT13_FALLBACK

@@ -35,6 +35,7 @@ struct term_entry term_table[] =
     {
       "console",
       0,
+      24,
       console_putchar,
       console_checkkey,
       console_getkey,
@@ -43,13 +44,16 @@ struct term_entry term_table[] =
       console_cls,
       console_setcolorstate,
       console_setcolor,
-      console_setcursor
+      console_setcursor,
+      0,
+      0
     },
 #ifdef SUPPORT_SERIAL
     {
       "serial",
       /* A serial device must be initialized.  */
       TERM_NEED_INIT,
+      24,
       serial_putchar,
       serial_checkkey,
       serial_getkey,
@@ -58,6 +62,8 @@ struct term_entry term_table[] =
       serial_cls,
       serial_setcolorstate,
       0,
+      0,
+      0,
       0
     },
 #endif /* SUPPORT_SERIAL */
@@ -65,6 +71,7 @@ struct term_entry term_table[] =
     {
       "hercules",
       0,
+      24,
       hercules_putchar,
       console_checkkey,
       console_getkey,
@@ -73,9 +80,28 @@ struct term_entry term_table[] =
       hercules_cls,
       hercules_setcolorstate,
       hercules_setcolor,
-      hercules_setcursor
+      hercules_setcursor,
+      0,
+      0
     },      
 #endif /* SUPPORT_HERCULES */
+#ifdef SUPPORT_GRAPHICS
+    { "graphics",
+      TERM_NEED_INIT, /* flags */
+      30, /* number of lines */
+      graphics_putchar, /* putchar */
+      console_checkkey, /* checkkey */
+      console_getkey, /* getkey */
+      graphics_getxy, /* getxy */
+      graphics_gotoxy, /* gotoxy */
+      graphics_cls, /* cls */
+      graphics_setcolorstate, /* setcolorstate */
+      graphics_setcolor, /* setcolor */
+      graphics_setcursor, /* nocursor */
+      graphics_init, /* initialize */
+      graphics_end /* shutdown */
+    },
+#endif /* SUPPORT_GRAPHICS */
     /* This must be the last entry.  */
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   };
@@ -1046,13 +1072,15 @@ grub_putchar (int c)
 		 the following grub_printf call will print newlines.  */
 	      count_lines = -1;
 
+	      grub_printf("\n");
 	      if (current_term->setcolorstate)
 		current_term->setcolorstate (COLOR_STATE_HIGHLIGHT);
 	      
-	      grub_printf ("\n[Hit return to continue]");
+	      grub_printf ("[Hit return to continue]");
 
 	      if (current_term->setcolorstate)
 		current_term->setcolorstate (COLOR_STATE_NORMAL);
+
 	      
 	      do
 		{
@@ -1090,7 +1118,7 @@ void
 cls (void)
 {
   /* If the terminal is dumb, there is no way to clean the terminal.  */
-  if (current_term->flags & TERM_DUMB)
+  if (current_term->flags & TERM_DUMB) 
     grub_putchar ('\n');
   else
     current_term->cls ();
@@ -1174,37 +1202,62 @@ grub_strlen (const char *str)
 }
 #endif /* ! STAGE1_5 */
 
+#ifdef GRUB_UTIL
+# ifdef __PIC__
+#  if defined(HAVE_START_SYMBOL) && defined(HAVE_END_SYMBOL)
+      extern char start[];
+      extern char end[];
+#  elif defined(HAVE_USCORE_START_SYMBOL) && defined (HAVE_USCORE_END_SYMBOL)
+      extern char _start[];
+      extern char _end[];
+#  endif
+# endif
+#endif
 int
-memcheck (int addr, int len)
+memcheck (unsigned long addr, unsigned long len)
 {
 #ifdef GRUB_UTIL
-  auto int start_addr (void);
-  auto int end_addr (void);
+# ifdef __PIC__
+#  if defined(HAVE_START_SYMBOL) && defined(HAVE_END_SYMBOL)
+  if (start <= addr && end > addr + len)
+    return ! errnum;
+#  elif defined(HAVE_USCORE_START_SYMBOL) && defined (HAVE_USCORE_END_SYMBOL)
+  if (_start <= addr && _end > addr + len)
+    return ! errnum;
+#  endif
+# else /* __PIC__ */
+  auto unsigned long start_addr (void);
+  auto unsigned long end_addr (void);
   
-  auto int start_addr (void)
+  auto unsigned long start_addr (void)
     {
-      int ret;
-# if defined(HAVE_START_SYMBOL)
+      unsigned long ret;
+#  if defined(HAVE_START_SYMBOL)
       asm volatile ("movl	$start, %0" : "=a" (ret));
-# elif defined(HAVE_USCORE_START_SYMBOL)
+#  elif defined(HAVE_USCORE_START_SYMBOL)
       asm volatile ("movl	$_start, %0" : "=a" (ret));
-# endif
+#  else
+      erk! /* function would return undefined data in this case - barf */
+#  endif
       return ret;
     }
 
-  auto int end_addr (void)
+  auto unsigned long end_addr (void)
     {
-      int ret;
-# if defined(HAVE_END_SYMBOL)
+      unsigned long ret;
+#  if defined(HAVE_END_SYMBOL)
       asm volatile ("movl	$end, %0" : "=a" (ret));
-# elif defined(HAVE_USCORE_END_SYMBOL)
+#  elif defined(HAVE_USCORE_END_SYMBOL)
       asm volatile ("movl	$_end, %0" : "=a" (ret));
-# endif
+#  else
+      erk! /* function would return undefined data in this case - barf */
+#  endif
       return ret;
     }
 
   if (start_addr () <= addr && end_addr () > addr + len)
     return ! errnum;
+# endif /* __PIC__ */
 #endif /* GRUB_UTIL */
 
   if ((addr < RAW_ADDR (0x1000))
@@ -1217,10 +1270,20 @@ memcheck (int addr, int len)
   return ! errnum;
 }
 
+void
+grub_memcpy(void *dest, const void *src, int len)
+{
+  int i;
+  register char *d = (char*)dest, *s = (char*)src;
+
+  for (i = 0; i < len; i++)
+    d[i] = s[i];
+}
+
 void *
 grub_memmove (void *to, const void *from, int len)
 {
-   if (memcheck ((int) to, len))
+   if (memcheck ((unsigned long) to, len))
      {
        /* This assembly code is stolen from
 	  linux-2.2.2/include/asm-i386/string.h. This is not very fast
@@ -1258,7 +1321,7 @@ grub_memset (void *start, int c, int len)
 {
   char *p = start;
 
-  if (memcheck ((int) start, len))
+  if (memcheck ((unsigned long) start, len))
     {
       while (len -- > 0)
 	*p ++ = c;
