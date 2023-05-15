@@ -20,7 +20,7 @@ libgrub_a_SOURCES = boot.c builtins.c char_io.c cmdline.c common.c \
 	fsys_jfs.c fsys_minix.c fsys_reiserfs.c fsys_ufs2.c \
 	fsys_vstafs.c fsys_xfs.c gunzip.c md5.c serial.c stage2.c \
 	terminfo.c tparm.c graphics.c
-libgrub_a_CFLAGS = $(GRUB_CFLAGS) -fno-stack-protector -I$(top_srcdir)/lib \
+libgrub_a_CFLAGS = $(GRUB_CFLAGS) -I$(top_srcdir)/lib \
 	-DGRUB_UTIL=1 -DFSYS_EXT2FS=1 -DFSYS_FAT=1 -DFSYS_FFS=1 \
 	-DFSYS_ISO9660=1 -DFSYS_JFS=1 -DFSYS_MINIX=1 -DFSYS_REISERFS=1 \
 	-DFSYS_UFS2=1 -DFSYS_VSTAFS=1 -DFSYS_XFS=1 \
