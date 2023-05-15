@@ -125,16 +125,13 @@ if test "x$ac_cv_c_compiler_gnu" = xyes; then
     # unlikely-to-be-executed functions being linked before _start with GCC
     # >= 4.6.
     AC_CACHE_CHECK([whether gcc has -fno-reorder-functions],
-		   no_reorder_functions_flag, [
+		   grub_cv_no_reorder_functions_flag, [
       saved_CFLAGS=$CFLAGS
       CFLAGS="-fno-reorder-functions"
-      AC_TRY_COMPILE(,
-		     ,
-		     no_reorder_functions_flag=yes,
-		     no_reorder_functions_flag=no)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[grub_cv_no_reorder_functions_flag=yes],[grub_cv_no_reorder_functions_flag=no])
       CFLAGS=$saved_CFLAGS
     ])
-    if test "x$no_reorder_functions_flag" = xyes; then
+    if test "x$grub_cv_no_reorder_functions_flag" = xyes; then
       STAGE2_CFLAGS="$STAGE2_CFLAGS -fno-reorder-functions"
     fi
   fi

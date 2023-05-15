@@ -5131,6 +5131,45 @@ printf "%s\n" "$grub_cv_cc_fpie" >&6; }
       STAGE1_CFLAGS="$STAGE1_CFLAGS -no-pie"
       STAGE2_CFLAGS="$STAGE2_CFLAGS -no-pie"
     fi
+
+    # GCC >= 3.3 supports -fno-reorder-functions; this defends us against
+    # unlikely-to-be-executed functions being linked before _start with GCC
+    # >= 4.6.
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether gcc has -fno-reorder-functions" >&5
+printf %s "checking whether gcc has -fno-reorder-functions... " >&6; }
+if test ${grub_cv_no_reorder_functions_flag+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+      saved_CFLAGS=$CFLAGS
+      CFLAGS="-fno-reorder-functions"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  grub_cv_no_reorder_functions_flag=yes
+else $as_nop
+  grub_cv_no_reorder_functions_flag=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+      CFLAGS=$saved_CFLAGS
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $grub_cv_no_reorder_functions_flag" >&5
+printf "%s\n" "$grub_cv_no_reorder_functions_flag" >&6; }
+    if test "x$grub_cv_no_reorder_functions_flag" = xyes; then
+      STAGE2_CFLAGS="$STAGE2_CFLAGS -fno-reorder-functions"
+    fi
   fi
 fi
 
