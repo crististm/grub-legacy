@@ -1,7 +1,11 @@
-This is GNU GRUB, the GRand Unified Bootloader.  GRUB is intended to
-provide important bootloader features that are missing from typical
-personal computer BIOSes:
+This is a 2023 update of Legacy GNU GRUB, the GRand Unified Bootloader
+forked from the original grub package, known as grub 0.97, grub 1 etc.
 
+This GRUB is intended to provide important bootloader features that are
+missing from typical personal computer BIOSes, and which cannot be
+offered by GRUB 2 especially on old or legacy systems:
+
+  - support for small media formats - floppy-disks
   - provides fully-featured command line and graphical interfaces
   - recognizes fdisk partitions and BSD disklabels
   - can dynamically read Linux ext2fs, ReiserFS, JFS and XFS, BSD ufs,
@@ -10,7 +14,7 @@ personal computer BIOSes:
   - can boot Multiboot-compliant kernels (such as GNU Mach), as well
     as standard Linux and *BSD kernels
 
-See the file NEWS for a description of recent changes to GRUB.
+See the file NEWS for a description of recent changes to GRUB Legacy.
 
 If you are interested in the network support, see the file
 README.netboot under the directory netboot.
@@ -20,4 +24,26 @@ GRUB data and program files. See the GRUB manual for details about
 using GRUB as your boot loader. Type "info grub" in the shell prompt.
 
 Please visit the official web page of GNU GRUB, for more information.
-The URL is <http://www.gnu.org/software/grub/grub.html>.
+The URL is <http://www.gnu.org/software/grub/grub.html> or the archived
+pages at archive.org for hystorical data.
+
+===
+
+Please remember that GNU stopped all work on GRUB legacy soon after Grub 2
+became mainstream many years ago and this fork is completely unofficial.
+You won't find any support at GNU for this package so don't waste time sending
+them bug reports - as they rightly recommend.
+
+For the curious, this is the result of a consistent effort of only two full days
+of back-to-back internet search for patches, fixes, typing and testing. In real
+time, from the first build error the whole thing took however years.
+The gentoo patches were recovered by luck from a personal workstation frozen in
+time with the build folder /var/tmp/portage intact. They don't really fix any
+of the build issues - as I incorrectly assumed - but they sparked the project
+and are useful as a set of fixups for problems that were bugging people way
+back when.
+
+Although Grub legacy is mostly irrelevant for systems of today, this doesn't
+really matter. I am glad that I can use this tool to play with my old systems.
+Have you seen those Youtube videos of restorations of rusty, good for garbage
+tools? Fixing Grub legacy was like that. And it even works.

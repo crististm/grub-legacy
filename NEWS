@@ -1,5 +1,9 @@
 NEWS - list of user-visible changes between releases of GRUB
 
+New in 0.98 - 2023-05-15:
+* Fix build with gcc-9.5.0, binutils-2.37
+* Update build configuration files and include hystorical gentoo patches
+
 New in 0.97 - 2005-05-08:
 * Fix the prototypes and the definitions of nested functions. This was
   required for gcc-4.
