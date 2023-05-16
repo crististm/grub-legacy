@@ -17,7 +17,7 @@ AC_INIT([GRUB],[0.98],[bug-grub@gnu.org])
 AC_CONFIG_SRCDIR([stage2/stage2.c])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
-
+AC_ARG_PROGRAM
 AC_CANONICAL_HOST
 
 case "$host_cpu" in

@@ -1,6 +1,13 @@
 This is a 2023 update of Legacy GNU GRUB, the GRand Unified Bootloader
 forked from the original grub package, known as grub 0.97, grub 1 etc.
 
+QUICK INSTALL
+=============
+./configure --program-transform-name='s/grub/grub1/'
+make
+make install
+
+
 This GRUB is intended to provide important bootloader features that are
 missing from typical personal computer BIOSes, and which cannot be
 offered by GRUB 2 especially on old or legacy systems:
