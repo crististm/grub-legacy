@@ -20,10 +20,10 @@
 # Replaced by the configure script.
 prefix=@prefix@
 exec_prefix=@exec_prefix@
-sbindir=@sbindir@
+bindir=@bindir@
 
 # Initialize some variables.
-grub_shell=${sbindir}/grub
+grub_shell=${bindir}/grub
 progname="grub-md5-crypt"
 
 # Check the arguments.

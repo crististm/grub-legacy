@@ -20,7 +20,7 @@
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
-sbindir=@sbindir@
+bindir=@bindir@
 libdir=@libdir@
 PACKAGE=@PACKAGE@
 host_cpu=@host_cpu@
@@ -42,7 +42,7 @@ if test -f $thisdir/../stage2/stage2; then
   stage1dir="$thisdir/../stage1"
   stage2dir="$thisdir/../stage2"
 else
-  grub_shell=${sbindir}/grub
+  grub_shell=${bindir}/grub
   stage1dir="$pkglibdir"
   stage2dir="$pkglibdir"
 fi
