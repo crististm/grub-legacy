@@ -23,7 +23,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 
 # Initialize some variables.
-grub_shell=${bindir}/grub
+grub_shell=${bindir}/`echo grub | sed -e '@program_transform_name@'`
 progname="grub-md5-crypt"
 
 # Check the arguments.
