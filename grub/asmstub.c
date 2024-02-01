@@ -18,6 +18,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#pragma GCC optimize ("O0")
+
 /* Try to use glibc's transparant LFS support. */
 #define _LARGEFILE_SOURCE	1
 /* lseek becomes synonymous with lseek64.  */
