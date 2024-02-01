@@ -22,13 +22,16 @@ AC_CANONICAL_HOST
 
 case "$host_cpu" in
 i[[3456]]86)
-  STAGE_MARCH="-march=$host_cpu"
   host_cpu=i386 ;;
 x86_64)
-  STAGE_MARCH="-march=i686"
   host_cpu=x86_64 ;;
 *) AC_MSG_ERROR([unsupported CPU type]) ;;
 esac
+
+# Optimize build for the lowest supported processor. Using, 'native' or
+# anything else remotely modern would make the images unbootable on an old
+# PC which defeats the purpose of this project
+STAGE_MARCH="-march=i386"
 
 AC_SUBST(host_cpu)
 AC_SUBST(host_vendor)
