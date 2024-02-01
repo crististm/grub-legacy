@@ -13,4 +13,4 @@ CLEANFILES = $(nodist_pkgdata_DATA)
 
 SUFFIXES = .exec
 .exec:
-	$(OBJCOPY) --only-section=.text -O binary $< $@
+	$(OBJCOPY) -R.note* -R.comment* -O binary $< $@
