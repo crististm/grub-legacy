@@ -4,6 +4,13 @@ This is the GRUB.  Welcome.
 
 This file contains instructions for compiling and installing the GRUB.
 
+QUICK INSTALL
+=============
+./configure --program-transform-name='s/grub/grub1/'
+make
+make install
+
+
 The Requirements
 ================
 
